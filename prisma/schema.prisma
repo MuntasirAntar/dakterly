@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  CLINIC_ADMIN
+  SUPER_ADMIN
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReminderChannel {
+  EMAIL
+  SMS
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  name               String
+  email              String        @unique
+  phone              String?
+  passwordHash       String
+  role               Role          @default(PATIENT)
+  isActive           Boolean       @default(true)
+  mustChangePassword Boolean       @default(false)
+  clinicId           String?
+  clinic             Clinic?       @relation(fields: [clinicId], references: [id])
+  appointments       Appointment[]
+  auditLogs          AuditLog[]
+  createdAt          DateTime      @default(now())
+}
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String
+  phone     String?
+  openTime  String   @default("09:00")
+  closeTime String   @default("21:00")
+  isActive  Boolean  @default(true)
+  doctors   Doctor[]
+  staff     User[]
+  createdAt DateTime @default(now())
+}
+
+model Specialty {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  doctors Doctor[]
+}
+
+model Doctor {
+  id                String           @id @default(cuid())
+  clinicId          String
+  specialtyId       String
+  name              String
+  qualifications    String?
+  bio               String?
+  consultationFee   Int
+  avgConsultMinutes Int              @default(10)
+  isActive          Boolean          @default(true)
+  clinic            Clinic           @relation(fields: [clinicId], references: [id])
+  specialty         Specialty        @relation(fields: [specialtyId], references: [id])
+  schedules         DoctorSchedule[]
+  appointments      Appointment[]
+  createdAt         DateTime         @default(now())
+
+  @@index([specialtyId])
+  @@index([clinicId])
+}
+
+model DoctorSchedule {
+  id          String @id @default(cuid())
+  doctorId    String
+  weekday     Int // 0 = Sunday ... 6 = Saturday
+  startTime   String // "17:00"
+  endTime     String // "21:00"
+  slotMinutes Int    @default(10)
+  doctor      Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, weekday, startTime])
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  patientId     String
+  doctorId      String
+  date          String // "2026-11-20"
+  slotTime      String // "17:10"
+  status        AppointmentStatus @default(BOOKED)
+  tokenNumber   Int
+  activeSlotKey String?           @unique // blocks double booking, see notes
+  checkedInAt   DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime          @default(now())
+  patient       User              @relation(fields: [patientId], references: [id])
+  doctor        Doctor            @relation(fields: [doctorId], references: [id])
+  reminders     Reminder[]
+
+  @@unique([doctorId, date, tokenNumber])
+  @@index([doctorId, date, status])
+  @@index([patientId])
+}
+
+model Reminder {
+  id            String          @id @default(cuid())
+  appointmentId String
+  channel       ReminderChannel @default(EMAIL)
+  sendAt        DateTime
+  sentAt        DateTime?
+  appointment   Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
