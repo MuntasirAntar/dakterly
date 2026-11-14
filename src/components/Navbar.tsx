@@ -13,6 +13,9 @@ export default async function Navbar() {
         </Link>
 
         <div className="flex items-center gap-4 text-sm text-gray-700">
+          <Link href="/doctors" className="hover:text-teal-700">
+            Find doctors
+          </Link>
           {user ? (
             <>
               {user.role === "PATIENT" ? (

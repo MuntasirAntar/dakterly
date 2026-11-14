@@ -1,0 +1,40 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getClinic, searchDoctors } from "@/lib/doctors";
+import DoctorCard from "@/components/DoctorCard";
+
+export default async function ClinicPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const clinic = await getClinic(id);
+  if (!clinic) notFound();
+
+  const doctors = await searchDoctors({ clinicId: clinic.id });
+
+  return (
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <Link href="/doctors" className="text-sm text-teal-700 hover:underline">
+        &larr; All doctors
+      </Link>
+
+      <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6">
+        <h1 className="text-2xl font-bold text-gray-900">{clinic.name}</h1>
+        <p className="mt-1 text-gray-600">
+          {clinic.address}, {clinic.city}
+        </p>
+        <p className="mt-1 text-sm text-gray-600">
+          Open {clinic.openTime} to {clinic.closeTime}
+          {clinic.phone ? ` · ${clinic.phone}` : ""}
+        </p>
+      </section>
+
+      <h2 className="mt-8 text-xl font-semibold text-gray-900">
+        Doctors at this clinic ({doctors.length})
+      </h2>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {doctors.map((doctor) => (
+          <DoctorCard key={doctor.id} doctor={doctor} />
+        ))}
+      </div>
+    </main>
+  );
+}
