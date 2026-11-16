@@ -48,9 +48,9 @@ export async function getSuperAdminDashboardData(userQuery?: string) {
       where: q
         ? {
             OR: [
-              { name: { contains: q } },
-              { email: { contains: q } },
-              { phone: { contains: q } },
+              { name: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+              { phone: { contains: q, mode: "insensitive" } },
             ],
           }
         : undefined,

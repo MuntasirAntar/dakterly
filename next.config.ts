@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/**": ["./sqlite-export.json"],
+  },
   allowedDevOrigins: ["**.run.app", "**.devtunnels.ms", "localhost:3000", "127.0.0.1:3000"],
   experimental: {
     serverActions: {

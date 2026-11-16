@@ -33,11 +33,11 @@ export async function searchDoctors(filters: DoctorFilters) {
       ...(filters.clinicId ? { clinicId: filters.clinicId } : {}),
       AND: words.map((word) => ({
         OR: [
-          { name: { contains: word } },
-          { qualifications: { contains: word } },
-          { specialty: { name: { contains: word } } },
-          { clinic: { name: { contains: word } } },
-          { clinic: { city: { contains: word } } },
+          { name: { contains: word, mode: "insensitive" } },
+          { qualifications: { contains: word, mode: "insensitive" } },
+          { specialty: { name: { contains: word, mode: "insensitive" } } },
+          { clinic: { name: { contains: word, mode: "insensitive" } } },
+          { clinic: { city: { contains: word, mode: "insensitive" } } },
         ],
       })),
     },
