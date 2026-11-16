@@ -62,11 +62,11 @@ export default function JoinClinicPage() {
               Request clinic onboarding
             </a>
             <a
-              href="mailto:partnerships@dakterly.com?subject=Clinic%20Partnership%20Inquiry"
+              href="mailto:antar2390@gmail.com?subject=Clinic%20Partnership%20Inquiry"
               className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
             >
               <Mail className="h-4 w-4" aria-hidden="true" />
-              Email partnerships@dakterly.com
+              Email antar2390@gmail.com
             </a>
           </div>
         </div>
@@ -106,10 +106,10 @@ export default function JoinClinicPage() {
                   <dt className="text-xs text-emerald-200">Partnership email</dt>
                   <dd className="mt-0.5 font-semibold">
                     <a
-                      href="mailto:partnerships@dakterly.com?subject=Clinic%20Partnership%20Inquiry"
+                      href="mailto:antar2390@gmail.com?subject=Clinic%20Partnership%20Inquiry"
                       className="underline decoration-emerald-300/60 underline-offset-4 hover:text-emerald-200"
                     >
-                      partnerships@dakterly.com
+                      antar2390@gmail.com
                     </a>
                   </dd>
                 </div>

@@ -14,6 +14,7 @@ interface Store {
   Appointment: AnyRow[];
   Reminder: AnyRow[];
   AuditLog: AnyRow[];
+  ClinicInquiry: AnyRow[];
 }
 
 function toDate(val: unknown): Date | null {
@@ -37,6 +38,7 @@ function loadInitialStore(): Store {
     Appointment: [],
     Reminder: [],
     AuditLog: [],
+    ClinicInquiry: [],
   };
 
   try {
@@ -85,6 +87,11 @@ function loadInitialStore(): Store {
       AuditLog: (raw.AuditLog ?? []).map((l) => ({
         ...l,
         createdAt: toDate(l.createdAt) ?? new Date(),
+      })),
+      ClinicInquiry: (raw.ClinicInquiry ?? []).map((q) => ({
+        ...q,
+        emailSent: toBool(q.emailSent),
+        createdAt: toDate(q.createdAt) ?? new Date(),
       })),
     };
   } catch (err) {
@@ -396,6 +403,9 @@ export function createMockPrismaClient(): PrismaClient {
           ...(model === "Appointment"
             ? { status: "BOOKED", checkedInAt: null, startedAt: null, completedAt: null, cancelledAt: null }
             : {}),
+          ...(model === "ClinicInquiry"
+            ? { status: "NEW", emailSent: false, doctorCount: null, message: null }
+            : {}),
           ...data,
         };
         store[model].push(record);
@@ -462,6 +472,7 @@ export function createMockPrismaClient(): PrismaClient {
     appointment: createDelegate("Appointment"),
     reminder: createDelegate("Reminder"),
     auditLog: createDelegate("AuditLog"),
+    clinicInquiry: createDelegate("ClinicInquiry"),
     $disconnect: async () => {},
   } as unknown as PrismaClient;
 }

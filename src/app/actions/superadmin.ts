@@ -399,3 +399,49 @@ export async function importDoctorsCsvAction(_prev: AdminActionState, formData: 
   const warningSuffix = rowErrors.length > 0 ? ` (${rowErrors.length} skipped: ${rowErrors[0]})` : "";
   return { ok: true, message: `Imported ${createdCount} doctor${createdCount === 1 ? "" : "s"}${warningSuffix}.` };
 }
+
+const VALID_INQUIRY_STATUSES = new Set(["NEW", "REVIEWED", "APPROVED", "DISMISSED"]);
+
+export async function updatePartnershipStatusAction(formData: FormData): Promise<void> {
+  const actor = await requireRole("SUPER_ADMIN");
+  const inquiryId = str(formData, "inquiryId");
+  const status = str(formData, "status");
+  if (!inquiryId || !VALID_INQUIRY_STATUSES.has(status)) return;
+
+  await db.clinicInquiry.update({
+    where: { id: inquiryId },
+    data: { status },
+  });
+
+  await logAudit(actor.id, `PARTNERSHIP_${status}`, "ClinicInquiry", inquiryId);
+  revalidateAll();
+}
+
+export async function approvePartnershipCreateClinicAction(formData: FormData): Promise<void> {
+  const actor = await requireRole("SUPER_ADMIN");
+  const inquiryId = str(formData, "inquiryId");
+  if (!inquiryId) return;
+
+  const inquiry = await db.clinicInquiry.findUnique({ where: { id: inquiryId } });
+  if (!inquiry) return;
+
+  const clinic = await db.clinic.create({
+    data: {
+      name: inquiry.clinicName,
+      address: str(formData, "address") || inquiry.city,
+      city: inquiry.city,
+      phone: inquiry.phone || null,
+      openTime: "09:00",
+      closeTime: "21:00",
+      isActive: true,
+    },
+  });
+
+  await db.clinicInquiry.update({
+    where: { id: inquiry.id },
+    data: { status: "APPROVED" },
+  });
+
+  await logAudit(actor.id, "APPROVE_PARTNERSHIP_CLINIC", "Clinic", clinic.id);
+  revalidateAll();
+}

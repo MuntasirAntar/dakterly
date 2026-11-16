@@ -75,10 +75,10 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:partnerships@dakterly.com?subject=Clinic%20Partnership%20Inquiry"
+                  href="mailto:antar2390@gmail.com?subject=Clinic%20Partnership%20Inquiry"
                   className="transition-colors duration-150 hover:text-emerald-300"
                 >
-                  partnerships@dakterly.com
+                  antar2390@gmail.com
                 </a>
               </li>
               <li>

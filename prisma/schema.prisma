@@ -137,3 +137,20 @@ model AuditLog {
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
 }
+
+model ClinicInquiry {
+  id          String   @id @default(cuid())
+  referenceId String   @unique
+  clinicName  String
+  contactName String
+  email       String
+  phone       String
+  city        String
+  doctorCount String?
+  message     String?
+  status      String   @default("NEW")
+  emailSent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+}

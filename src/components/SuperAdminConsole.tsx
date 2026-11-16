@@ -4,10 +4,16 @@ import { type FormEvent, useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
+  Bell,
   Building2,
+  CheckCircle2,
   FileSpreadsheet,
   KeyRound,
+  Mail,
+  MapPin,
+  Phone,
   Plus,
+  RefreshCw,
   Search,
   ShieldAlert,
   Stethoscope,
@@ -17,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import {
+  approvePartnershipCreateClinicAction,
   createClinicAction,
   createClinicAdminAction,
   importDoctorsCsvAction,
@@ -24,6 +31,7 @@ import {
   toggleClinicActiveAction,
   toggleUserActiveAction,
   updateClinicAction,
+  updatePartnershipStatusAction,
   type AdminActionState,
 } from "@/app/actions/superadmin";
 import DoctorAvatar from "@/components/DoctorAvatar";
@@ -39,6 +47,7 @@ export type SuperAdminData = {
     activeDoctors: number;
     patients: number;
     todayAppointments: number;
+    newPartnershipRequests: number;
   };
   clinics: Array<{
     id: string;
@@ -94,9 +103,23 @@ export type SuperAdminData = {
     createdAt: string;
     user: { name: string; email: string; role: string } | null;
   }>;
+  clinicInquiries: Array<{
+    id: string;
+    referenceId: string;
+    clinicName: string;
+    contactName: string;
+    email: string;
+    phone: string;
+    city: string;
+    doctorCount: string | null;
+    message: string | null;
+    status: string;
+    emailSent: boolean;
+    createdAt: string;
+  }>;
 };
 
-type TabId = "clinics" | "admins" | "doctors" | "users" | "audit";
+type TabId = "clinics" | "admins" | "doctors" | "users" | "partnerships" | "audit";
 
 const WEEKDAYS = [
   { value: 0, label: "Sun" },
@@ -253,6 +276,7 @@ export default function SuperAdminConsole({ data }: { data: SuperAdminData }) {
     { id: "admins", label: "Clinic Admins", count: data.clinicAdmins.length, icon: UserCog },
     { id: "doctors", label: "Doctors & Photos", count: data.doctors.length, icon: Stethoscope },
     { id: "users", label: "Users", count: data.users.length, icon: Users },
+    { id: "partnerships", label: "Partnership Requests", count: data.clinicInquiries.length, icon: Bell },
     { id: "audit", label: "Activity Log", count: data.auditLogs.length, icon: Activity },
   ];
 
@@ -269,8 +293,61 @@ export default function SuperAdminConsole({ data }: { data: SuperAdminData }) {
     { label: "Today's Appointments", value: data.counts.todayAppointments, sub: data.today },
   ];
 
+  const newCount = data.counts.newPartnershipRequests;
+
   return (
     <div className="space-y-6">
+      {/* Top Green Notification Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200/80 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2.5 text-sm text-slate-700">
+          <span
+            className={`inline-flex h-2.5 w-2.5 rounded-full ${
+              newCount > 0 ? "animate-pulse bg-emerald-500" : "bg-slate-300"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="font-medium">
+            {newCount > 0
+              ? `${newCount} new clinic partnership ${newCount === 1 ? "request" : "requests"} awaiting review`
+              : "Clinic partnership inbox is up to date"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            title="Refresh dashboard"
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab("partnerships")}
+            className={`inline-flex items-center gap-2.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
+              newCount > 0
+                ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                : "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+            }`}
+          >
+            <Bell className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Partnership Request</span>
+            <span
+              className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 font-mono text-xs font-bold tabular-nums ${
+                newCount > 0
+                  ? "bg-white text-emerald-700"
+                  : "bg-emerald-600 text-white"
+              }`}
+            >
+              {newCount}
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Overview metrics strip */}
       <dl className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
@@ -1043,7 +1120,162 @@ export default function SuperAdminConsole({ data }: { data: SuperAdminData }) {
         </section>
       )}
 
-      {/* TAB 5: ACTIVITY LOG (AuditLog) */}
+      {/* TAB 5: PARTNERSHIP REQUESTS */}
+      {tab === "partnerships" && (
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <Bell className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                Clinic Partnership Requests
+              </h2>
+              <p className="text-xs text-slate-500">
+                Submissions from the Join Dakterly for Clinics form. Approve to create the clinic or mark as reviewed.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+              {newCount} unread
+            </span>
+          </div>
+
+          {data.clinicInquiries.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <p className="text-sm font-semibold text-slate-800">No partnership requests yet</p>
+              <p className="mt-1 text-xs text-slate-500">
+                When a clinic submits the partnership form on /join-clinic, all details will appear here immediately.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {data.clinicInquiries.map((inq) => {
+                const statusBadgeClass =
+                  inq.status === "NEW"
+                    ? "border-emerald-300 bg-emerald-100 text-emerald-900"
+                    : inq.status === "APPROVED"
+                      ? "border-teal-200 bg-teal-50 text-teal-800"
+                      : inq.status === "DISMISSED"
+                        ? "border-rose-200 bg-rose-50 text-rose-700"
+                        : "border-slate-200 bg-slate-100 text-slate-700";
+
+                return (
+                  <article
+                    key={inq.id}
+                    className={`p-5 transition-colors ${inq.status === "NEW" ? "bg-emerald-50/35" : "bg-white"}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-bold text-slate-900">{inq.clinicName}</h3>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass}`}>
+                            {inq.status}
+                          </span>
+                          <span className="font-mono text-xs text-slate-500">{inq.referenceId}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Submitted {new Date(inq.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Dhaka" })}
+                          {inq.emailSent && " · Email sent to website inbox"}
+                        </p>
+                      </div>
+
+                      <a
+                        href={`mailto:${inq.email}?subject=${encodeURIComponent(`Re: Dakterly Partnership Request (${inq.clinicName})`)}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Mail className="h-3.5 w-3.5 text-teal-700" aria-hidden="true" />
+                        Reply via email
+                      </a>
+                    </div>
+
+                    <dl className="mt-4 grid gap-3 rounded-lg border border-slate-200/80 bg-white p-3.5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <dt className="text-xs text-slate-500">Contact person</dt>
+                        <dd className="mt-0.5 font-medium text-slate-900">{inq.contactName}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Official email</dt>
+                        <dd className="mt-0.5 font-medium text-teal-800 break-all">{inq.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Phone</dt>
+                        <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs text-slate-800">
+                          <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                          {inq.phone}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">City &amp; doctors</dt>
+                        <dd className="mt-0.5 flex items-center gap-1 text-slate-800">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                          <span>
+                            {inq.city}
+                            {inq.doctorCount ? ` · ${inq.doctorCount}` : ""}
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {inq.message && (
+                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-700">
+                        <span className="block text-xs font-semibold text-slate-500">Specialties &amp; notes</span>
+                        <p className="mt-0.5 whitespace-pre-wrap">{inq.message}</p>
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                      {inq.status !== "APPROVED" && (
+                        <form action={approvePartnershipCreateClinicAction} className="flex flex-wrap items-center gap-2">
+                          <input type="hidden" name="inquiryId" value={inq.id} />
+                          <input
+                            name="address"
+                            placeholder={`Street address (default: ${inq.city})`}
+                            aria-label="Clinic street address"
+                            className="w-56 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            Approve &amp; Add Clinic
+                          </button>
+                        </form>
+                      )}
+
+                      {inq.status === "NEW" && (
+                        <form action={updatePartnershipStatusAction}>
+                          <input type="hidden" name="inquiryId" value={inq.id} />
+                          <input type="hidden" name="status" value="REVIEWED" />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Mark Reviewed
+                          </button>
+                        </form>
+                      )}
+
+                      {inq.status !== "DISMISSED" && inq.status !== "APPROVED" && (
+                        <form action={updatePartnershipStatusAction}>
+                          <input type="hidden" name="inquiryId" value={inq.id} />
+                          <input type="hidden" name="status" value="DISMISSED" />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                          >
+                            Dismiss
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 6: ACTIVITY LOG (AuditLog) */}
       {tab === "audit" && (
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-5 py-4">

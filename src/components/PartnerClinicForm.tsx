@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2, Mail, Send } from "lucide-react";
 
-const PARTNER_EMAIL = "partnerships@dakterly.com";
+const PARTNER_EMAIL = "antar2390@gmail.com";
 
 type FormValues = {
   clinicName: string;
@@ -52,6 +52,7 @@ export default function PartnerClinicForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
+  const [submittedEmailSent, setSubmittedEmailSent] = useState<boolean>(false);
   const [submittedSnapshot, setSubmittedSnapshot] = useState<FormValues | null>(null);
 
   const inputClass =
@@ -76,6 +77,7 @@ export default function PartnerClinicForm() {
         return;
       }
       setSubmittedRef(data.referenceId);
+      setSubmittedEmailSent(Boolean(data.emailSent));
       setSubmittedSnapshot(values);
       setValues(INITIAL);
     } catch {
@@ -94,8 +96,11 @@ export default function PartnerClinicForm() {
             <h3 className="text-lg font-bold text-slate-900">Inquiry received</h3>
             <p className="mt-1 text-sm text-slate-700">
               Thank you, <span className="font-semibold">{submittedSnapshot.contactName}</span>. Your partnership request for{" "}
-              <span className="font-semibold">{submittedSnapshot.clinicName}</span> has been logged under reference{" "}
+              <span className="font-semibold">{submittedSnapshot.clinicName}</span> has been sent to our Super Admin team under reference{" "}
               <span className="font-mono font-semibold text-teal-800">{submittedRef}</span>.
+              {submittedEmailSent && (
+                <span> An email notification has also been delivered to {PARTNER_EMAIL}.</span>
+              )}
             </p>
           </div>
         </div>

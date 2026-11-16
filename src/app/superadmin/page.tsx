@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { getSuperAdminDashboardData } from "@/lib/superadmin";
+import AutoRefresh from "@/components/AutoRefresh";
 import SuperAdminConsole from "@/components/SuperAdminConsole";
 
 export const metadata: Metadata = { title: "Super Admin | Dakterly" };
@@ -67,16 +68,31 @@ export default async function SuperAdminPage() {
       createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : String(l.createdAt),
       user: l.user,
     })),
+    clinicInquiries: raw.clinicInquiries.map((q) => ({
+      id: q.id,
+      referenceId: q.referenceId,
+      clinicName: q.clinicName,
+      contactName: q.contactName,
+      email: q.email,
+      phone: q.phone,
+      city: q.city,
+      doctorCount: q.doctorCount ?? null,
+      message: q.message ?? null,
+      status: q.status,
+      emailSent: Boolean(q.emailSent),
+      createdAt: q.createdAt instanceof Date ? q.createdAt.toISOString() : String(q.createdAt),
+    })),
   };
 
   return (
     <main className="flex-1 bg-slate-50">
+      <AutoRefresh seconds={20} />
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
           <p className="text-xs font-medium text-teal-700">Platform Administration · {user.email}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Super Admin Console</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Manage clinics, clinic admin accounts, doctor profiles &amp; portraits, user access, and audit logs.
+            Manage clinics, clinic admin accounts, doctor profiles &amp; portraits, user access, partnership requests, and audit logs.
           </p>
         </div>
       </div>

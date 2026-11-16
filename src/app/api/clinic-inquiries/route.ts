@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { sendPartnershipNotificationEmail } from "@/lib/email";
 
 const inquirySchema = z.object({
   clinicName: z.string().trim().min(2, "Enter your clinic name").max(120),
@@ -10,16 +12,6 @@ const inquirySchema = z.object({
   doctorCount: z.string().trim().max(20).optional(),
   message: z.string().trim().max(1000).optional(),
 });
-
-type StoredInquiry = z.infer<typeof inquirySchema> & {
-  referenceId: string;
-  createdAt: string;
-};
-
-const globalStore = globalThis as unknown as { clinicInquiries?: StoredInquiry[] };
-if (!globalStore.clinicInquiries) {
-  globalStore.clinicInquiries = [];
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,15 +25,62 @@ export async function POST(req: NextRequest) {
     }
 
     const referenceId = `DK-CL-${Date.now().toString(36).toUpperCase().slice(-6)}`;
-    const record: StoredInquiry = {
-      ...parsed.data,
-      referenceId,
-      createdAt: new Date().toISOString(),
-    };
-    globalStore.clinicInquiries?.push(record);
+    const created = await db.clinicInquiry.create({
+      data: {
+        referenceId,
+        clinicName: parsed.data.clinicName,
+        contactName: parsed.data.contactName,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        city: parsed.data.city,
+        doctorCount: parsed.data.doctorCount || null,
+        message: parsed.data.message || null,
+        status: "NEW",
+        emailSent: false,
+      },
+    });
 
-    return NextResponse.json({ ok: true, referenceId, createdAt: record.createdAt }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+    const createdAtIso =
+      created.createdAt instanceof Date ? created.createdAt.toISOString() : new Date().toISOString();
+
+    const emailResult = await sendPartnershipNotificationEmail({
+      referenceId,
+      clinicName: parsed.data.clinicName,
+      contactName: parsed.data.contactName,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      doctorCount: parsed.data.doctorCount || null,
+      message: parsed.data.message || null,
+      createdAt: createdAtIso,
+    });
+
+    if (emailResult.sent) {
+      await db.clinicInquiry.update({
+        where: { id: created.id },
+        data: { emailSent: true },
+      });
+    }
+
+    await db.auditLog.create({
+      data: {
+        action: "CLINIC_PARTNERSHIP_REQUEST",
+        entity: "ClinicInquiry",
+        entityId: created.id,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        referenceId,
+        createdAt: createdAtIso,
+        emailSent: emailResult.sent,
+      },
+      { status: 201 },
+    );
+  } catch (err) {
+    console.error("[Dakterly] Clinic inquiry submission error:", err);
+    return NextResponse.json({ error: "Could not submit your inquiry. Please try again." }, { status: 400 });
   }
 }
