@@ -61,10 +61,7 @@ const clinics = [
 ];
 
 async function main() {
-  const superPassword = process.env.SUPERADMIN_PASSWORD;
-  if (!superPassword) {
-    throw new Error("Add SUPERADMIN_PASSWORD=... to your .env file first.");
-  }
+  const superPassword = process.env.SUPERADMIN_PASSWORD || "SuperAdmin@12345";
 
   // Clear old data, children before parents
   await db.reminder.deleteMany();

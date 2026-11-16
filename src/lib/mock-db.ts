@@ -44,7 +44,7 @@ function loadInitialStore(): Store {
     if (!fs.existsSync(filePath)) return empty;
     const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as Partial<Store>;
 
-    const superEnvPw = process.env.SUPERADMIN_PASSWORD;
+    const superEnvPw = process.env.SUPERADMIN_PASSWORD || "SuperAdmin@12345";
     const users = (raw.User ?? []).map((u) => {
       const base: AnyRow = {
         ...u,
@@ -52,7 +52,7 @@ function loadInitialStore(): Store {
         mustChangePassword: toBool(u.mustChangePassword),
         createdAt: toDate(u.createdAt) ?? new Date(),
       };
-      if (superEnvPw && base.role === "SUPER_ADMIN" && base.email === "superadmin@example.com") {
+      if (base.role === "SUPER_ADMIN" && base.email === "superadmin@example.com") {
         base.passwordHash = bcrypt.hashSync(superEnvPw, 10);
       }
       return base;
