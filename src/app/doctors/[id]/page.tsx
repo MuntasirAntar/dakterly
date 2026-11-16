@@ -5,6 +5,8 @@ import { WEEKDAY_LONG, formatFee, formatTime } from "@/lib/format";
 import DoctorAvatar from "@/components/DoctorAvatar";
 import BackButton from "@/components/BackButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function DoctorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const doctor = await getDoctor(id);

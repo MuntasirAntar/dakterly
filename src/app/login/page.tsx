@@ -6,6 +6,8 @@ import authBackdrop from "@/assets/images/auth_medical_backdrop_1794852044039.jp
 import AuthShell from "@/components/AuthShell";
 import LoginForm from "@/components/LoginForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const next = safeNextPath(first((await searchParams).next));
   const user = await getCurrentUser();

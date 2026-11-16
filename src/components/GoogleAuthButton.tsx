@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithGoogleForPatient } from "@/lib/firebase-client";
+import { signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { BOOTSTRAP_ADMIN_EMAIL, firestore, getClientAuth } from "@/lib/firebase";
+import { friendlyFirebaseAuthError, signInWithGoogle } from "@/lib/firebase-client";
 
 type Props = {
   mode: "login" | "signup";
@@ -16,11 +19,41 @@ export default function GoogleAuthButton({ mode, next }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const { idToken } = await signInWithGoogleForPatient();
+      const { user, idToken } = await signInWithGoogle();
+      const email = (user.email ?? "").trim().toLowerCase();
+
+      // Determine effective role from Firestore user profile / bootstrap email
+      let role: "PATIENT" | "CLINIC_ADMIN" | "SUPER_ADMIN" =
+        email === BOOTSTRAP_ADMIN_EMAIL && user.emailVerified ? "SUPER_ADMIN" : "PATIENT";
+      let clinicId: string | null = null;
+      let displayName = user.displayName ?? email.split("@")[0] ?? "User";
+
+      const userSnap = await getDoc(doc(firestore, "users", user.uid)).catch(() => null);
+      if (userSnap?.exists()) {
+        const d = userSnap.data() as Record<string, unknown>;
+        if (d.isActive === false && role !== "SUPER_ADMIN") {
+          const auth = getClientAuth();
+          if (auth) await signOut(auth).catch(() => {});
+          setError("This account has been suspended. Please contact your clinic or site administrator.");
+          return;
+        }
+        if (role !== "SUPER_ADMIN" && (d.role === "SUPER_ADMIN" || d.role === "CLINIC_ADMIN" || d.role === "PATIENT")) {
+          role = d.role;
+        }
+        clinicId = typeof d.clinicId === "string" ? d.clinicId : null;
+        if (typeof d.name === "string" && d.name.trim()) displayName = d.name.trim();
+      }
+
       const res = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, next: next ?? undefined }),
+        body: JSON.stringify({
+          idToken,
+          next: next ?? undefined,
+          role,
+          clinicId,
+          name: displayName,
+        }),
       });
       const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: string };
       if (!res.ok || !data.ok) {
@@ -29,20 +62,13 @@ export default function GoogleAuthButton({ mode, next }: Props) {
       }
       window.location.assign(data.redirectTo ?? "/");
     } catch (err: unknown) {
-      const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code) : "";
-      if (code === "auth/popup-closed-by-user") {
-        setError("Google sign-in was cancelled.");
-      } else if (code === "auth/popup-blocked") {
-        setError("Popup was blocked by your browser. Allow popups for this site and try again.");
-      } else {
-        setError("Could not complete Google sign-in. Please try again.");
-      }
+      setError(friendlyFirebaseAuthError(err));
     } finally {
       setLoading(false);
     }
   }
 
-  const label = mode === "signup" ? "Sign up with Google (Patients)" : "Continue with Google (Patients)";
+  const label = mode === "signup" ? "Sign up with Google" : "Continue with Google";
 
   return (
     <div className="space-y-2">

@@ -7,6 +7,8 @@ import { summarizeDay, type Status } from "@/lib/queue";
 import { CLINIC_TZ, currentTime, formatDate, nowInClinicTz } from "@/lib/time";
 import PrintButton from "@/components/PrintButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function TodayListPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole("CLINIC_ADMIN");
   if (!user.clinicId) notFound();

@@ -6,6 +6,8 @@ import registerBackdrop from "@/assets/images/hero_clinic_care_1794851618508.jpg
 import AuthShell from "@/components/AuthShell";
 import RegisterForm from "@/components/RegisterForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const next = safeNextPath(first((await searchParams).next));
   const user = await getCurrentUser();

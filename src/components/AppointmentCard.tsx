@@ -1,10 +1,20 @@
 import Link from "next/link";
 import { formatTime } from "@/lib/format";
 import { formatDate } from "@/lib/time";
-import type { getMyAppointments } from "@/lib/booking";
 import StatusBadge from "@/components/StatusBadge";
 
-type AppointmentItem = Awaited<ReturnType<typeof getMyAppointments>>[number];
+type AppointmentItem = {
+  id: string;
+  date: string;
+  slotTime: string;
+  status: string;
+  tokenNumber: number;
+  doctor: {
+    name: string;
+    specialty: { name: string };
+    clinic: { name: string };
+  };
+};
 
 export default function AppointmentCard({ appointment }: { appointment: AppointmentItem }) {
   const { doctor } = appointment;

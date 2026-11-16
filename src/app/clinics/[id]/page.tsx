@@ -3,6 +3,8 @@ import { getClinic, searchDoctors } from "@/lib/doctors";
 import DoctorCard from "@/components/DoctorCard";
 import BackButton from "@/components/BackButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function ClinicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const clinic = await getClinic(id);

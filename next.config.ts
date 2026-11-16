@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: "standalone",
+  output: process.env.DOCKER_BUILD ? "standalone" : undefined,
   allowedDevOrigins: ["**.run.app", "**.devtunnels.ms", "localhost:3000", "127.0.0.1:3000"],
   experimental: {
     serverActions: {

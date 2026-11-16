@@ -7,6 +7,7 @@ import DoctorCard from "@/components/DoctorCard";
 import SearchForm from "@/components/SearchForm";
 import SpecialtyChips from "@/components/SpecialtyChips";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Find a Doctor | Dakterly" };
 
 type SearchParams = Record<string, string | string[] | undefined>;

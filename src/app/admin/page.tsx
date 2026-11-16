@@ -6,6 +6,8 @@ import { formatDate, nowInClinicTz, weekdayOf } from "@/lib/time";
 import AutoRefresh from "@/components/AutoRefresh";
 import DoctorDayCard from "@/components/DoctorDayCard";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const user = await requireRole("CLINIC_ADMIN");
 

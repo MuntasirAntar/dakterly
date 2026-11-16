@@ -23,6 +23,8 @@ const steps = [
   },
 ];
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [{ specialties, cities }, clinics] = await Promise.all([
     getFilterOptions(),
