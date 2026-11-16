@@ -39,7 +39,7 @@ const clinics = [
     phone: "01700-000002",
     adminEmail: "reception.riverside@example.com",
     doctors: [
-      { name: "Dr. Sabrina Akter", specialty: "Pediatrician", qualifications: "MBBS, DCH", fee: 900, days: [0, 1, 2, 3, 4], start: "15:00", end: "19:00", slot: 10 },
+      { name: "Dr. Sabrina Akter", specialty: "Pediatrician", qualifications: "MBBS, DCH", fee: 900, days: [0, 1, 2, 3, 4], start: "15:00", end: "19:00", slot: 20 },
       { name: "Dr. Mahmudul Karim", specialty: "Orthopedic Surgeon", qualifications: "MBBS, MS (Orthopedics)", fee: 1300, days: [0, 2], start: "17:00", end: "21:00", slot: 15 },
       { name: "Dr. Rubina Sultana", specialty: "Gynecologist", qualifications: "MBBS, FCPS (Obs & Gynae)", fee: 1200, days: [0, 2, 4], start: "16:00", end: "20:00", slot: 15 },
       { name: "Dr. Arif Mahmud", specialty: "ENT Specialist", qualifications: "MBBS, DLO", fee: 1000, days: [1, 3], start: "17:00", end: "20:00", slot: 10 },

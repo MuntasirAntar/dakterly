@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, deleteSession } from "@/lib/session";
 import { homePathFor } from "@/lib/auth";
+import { safeNextPath } from "@/lib/redirect";
 
 // "values" sends what the person typed back to the form, because React clears
 // the form after every submit. (Passwords are never sent back.)
@@ -67,7 +68,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
   });
 
   await createSession(user.id);
-  redirect("/");
+  redirect(safeNextPath(formData.get("next")) ?? "/");
 }
 
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -87,7 +88,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   }
 
   await createSession(user.id);
-  redirect(homePathFor(user.role));
+  redirect(safeNextPath(formData.get("next")) ?? homePathFor(user.role));
 }
 
 export async function logout() {

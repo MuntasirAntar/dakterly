@@ -82,13 +82,12 @@ export default async function DoctorPage({ params }: { params: Promise<{ id: str
             <p className="text-sm text-gray-500">Consultation fee</p>
             <p className="text-2xl font-bold text-gray-900">{formatFee(doctor.consultationFee)}</p>
             <p className="mt-2 text-sm text-gray-600">About {doctor.avgConsultMinutes} minutes per patient</p>
-            <button
-              type="button"
-              disabled
-              className="mt-4 w-full cursor-not-allowed rounded-lg bg-gray-200 py-2.5 font-medium text-gray-500"
+            <Link
+              href={`/doctors/${doctor.id}/book`}
+              className="mt-4 block w-full rounded-lg bg-teal-700 py-2.5 text-center font-medium text-white hover:bg-teal-800"
             >
-              Booking opens next
-            </button>
+              Book appointment
+            </Link>
           </section>
 
           <section className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-700">

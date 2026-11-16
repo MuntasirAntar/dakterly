@@ -38,3 +38,12 @@ export async function requireRole(...roles: Role[]) {
   if (!roles.includes(user.role)) redirect(homePathFor(user.role));
   return user;
 }
+
+// For pages a patient must see (like booking). Logged out? Go to login and
+// come back here afterwards. Staff accounts are sent to their own dashboard.
+export async function requirePatient(returnTo: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+  if (user.role !== "PATIENT") redirect(homePathFor(user.role));
+  return user;
+}

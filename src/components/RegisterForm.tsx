@@ -11,12 +11,13 @@ function FieldError({ messages }: { messages?: string[] }) {
 
 const inputClass = "mt-1 w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900";
 
-export default function RegisterForm() {
+export default function RegisterForm({ next }: { next?: string | null }) {
   const [state, formAction, pending] = useActionState(register, undefined);
   const errors = state?.fieldErrors;
 
   return (
     <form action={formAction} className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 text-gray-900 shadow-sm">
+      <input type="hidden" name="next" value={next ?? ""} />
       <h1 className="text-2xl font-bold text-teal-700">Create your account</h1>
 
       {state?.error && (
@@ -63,7 +64,7 @@ export default function RegisterForm() {
 
       <p className="text-center text-sm text-gray-600">
         Already have an account?{" "}
-        <Link href="/login" className="text-teal-700 underline">
+        <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="text-teal-700 underline">
           Log in
         </Link>
       </p>

@@ -4,11 +4,12 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { login } from "@/app/actions/auth";
 
-export default function LoginForm() {
+export default function LoginForm({ next }: { next?: string | null }) {
   const [state, formAction, pending] = useActionState(login, undefined);
 
   return (
     <form action={formAction} className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 text-gray-900 shadow-sm">
+      <input type="hidden" name="next" value={next ?? ""} />
       <h1 className="text-2xl font-bold text-teal-700">Log in</h1>
 
       {state?.error && (
@@ -33,7 +34,7 @@ export default function LoginForm() {
 
       <p className="text-center text-sm text-gray-600">
         New here?{" "}
-        <Link href="/register" className="text-teal-700 underline">
+        <Link href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"} className="text-teal-700 underline">
           Create an account
         </Link>
       </p>
