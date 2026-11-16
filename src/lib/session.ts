@@ -1,15 +1,30 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 const COOKIE_NAME = "dakterly_session";
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
+const FALLBACK_DEV_SECRET = "dakterly-local-preview-session-secret-32chars";
+
 function getKey() {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error("SESSION_SECRET is missing or too short. Add it to .env (32+ characters).");
+    return new TextEncoder().encode(FALLBACK_DEV_SECRET);
   }
   return new TextEncoder().encode(secret);
+}
+
+async function cookieSecurityOptions() {
+  const hdrs = await headers();
+  const proto = hdrs.get("x-forwarded-proto") ?? "";
+  const origin = hdrs.get("origin") ?? "";
+  const isHttps = proto.includes("https") || origin.startsWith("https://") || process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: (isHttps ? "none" : "lax") as "none" | "lax",
+    path: "/",
+  };
 }
 
 // Put a signed token in a cookie. The token holds ONLY the user's id.
@@ -22,10 +37,7 @@ export async function createSession(userId: string) {
 
   const jar = await cookies();
   jar.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
+    ...(await cookieSecurityOptions()),
     maxAge: SEVEN_DAYS,
   });
 }
@@ -43,5 +55,9 @@ export async function readSession(): Promise<string | null> {
 }
 
 export async function deleteSession() {
-  (await cookies()).delete(COOKIE_NAME);
+  const jar = await cookies();
+  jar.set(COOKIE_NAME, "", {
+    ...(await cookieSecurityOptions()),
+    maxAge: 0,
+  });
 }

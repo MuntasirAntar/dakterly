@@ -19,6 +19,14 @@ export default async function AdminPage() {
       </main>
     );
   }
+  if (!clinic.isActive) {
+    return (
+      <main className="mx-auto w-full max-w-5xl px-4 py-10">
+        <h1 className="text-2xl font-bold text-teal-700">{clinic.name}</h1>
+        <p className="mt-2 text-amber-800">This clinic is currently deactivated. Please contact the site administrator.</p>
+      </main>
+    );
+  }
 
   const today = nowInClinicTz().date;
   const doctors = await getClinicDay(clinic.id, today, weekdayOf(today));

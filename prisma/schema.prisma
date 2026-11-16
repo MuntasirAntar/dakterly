@@ -70,6 +70,7 @@ model Doctor {
   name              String
   qualifications    String?
   bio               String?
+  photoUrl          String?
   consultationFee   Int
   avgConsultMinutes Int              @default(10)
   isActive          Boolean          @default(true)

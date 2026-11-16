@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { requirePatient } from "@/lib/auth";
 import { BOOKING_MESSAGES, getAvailabilityByDate } from "@/lib/booking";
 import { getDoctor } from "@/lib/doctors";
-import { formatFee, formatTime, initials } from "@/lib/format";
+import { formatFee, formatTime } from "@/lib/format";
 import { first, type SearchParams } from "@/lib/params";
 import { dateChip, formatDate, isValidDateString, nowInClinicTz } from "@/lib/time";
 import { bookAppointment } from "@/app/actions/appointments";
+import DoctorAvatar from "@/components/DoctorAvatar";
+import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
 
 export const metadata: Metadata = { title: "Book an appointment | Dakterly" };
@@ -46,22 +48,18 @@ export default async function BookPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <Link href={`/doctors/${doctor.id}`} className="text-sm text-teal-700 hover:underline">
-        &larr; Back to profile
-      </Link>
-      <h1 className="mt-3 text-3xl font-bold text-gray-900">Book an appointment</h1>
+      <BackButton href={`/doctors/${doctor.id}`} />
+      <h1 className="mt-3 text-2xl font-bold text-gray-900 sm:text-3xl">Book an appointment</h1>
 
-      <section className="mt-5 flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4">
-        <div aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-teal-100 text-lg font-bold text-teal-800">
-          {initials(doctor.name)}
-        </div>
+      <section className="mt-5 flex flex-wrap items-center gap-3.5 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-nowrap sm:gap-4">
+        <DoctorAvatar name={doctor.name} photoUrl={doctor.photoUrl} size="md" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-gray-900">{doctor.name}</p>
           <p className="text-sm text-gray-600">
             {doctor.specialty.name} · {doctor.clinic.name}, {doctor.clinic.city}
           </p>
         </div>
-        <p className="font-semibold text-gray-900">{formatFee(doctor.consultationFee)}</p>
+        <p className="font-semibold text-gray-900 tabular-nums">{formatFee(doctor.consultationFee)}</p>
       </section>
 
       {errorCode && BOOKING_MESSAGES[errorCode] && (
@@ -77,7 +75,7 @@ export default async function BookPage({
       ) : (
         <>
           <h2 className="mt-8 text-lg font-semibold text-gray-900">1. Choose a day</h2>
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-7">
             {days.map((day) => {
               const chip = dateChip(day.date);
               const isSelected = day.date === selected.date;

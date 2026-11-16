@@ -1,12 +1,26 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { getFilterOptions } from "@/lib/doctors";
-import SearchForm from "@/components/SearchForm";
+import HeroSlideshow from "@/components/HeroSlideshow";
+import ClinicsSlideshow, { type ClinicSlideItem } from "@/components/ClinicsSlideshow";
 
 const steps = [
-  { title: "Find your doctor", text: "Search by name, specialty, clinic or city, and compare fees and schedules." },
-  { title: "Book a time slot", text: "Pick an open slot and get a token number. No more turning up and hoping." },
-  { title: "Track your queue", text: "See your position and estimated wait live, and leave home only when your turn is near." },
+  {
+    number: "01",
+    title: "Find your doctor",
+    text: "Search by name, specialty, clinic, or city, and compare consultation fees and weekly schedules.",
+  },
+  {
+    number: "02",
+    title: "Book a time slot",
+    text: "Pick an open time slot and receive your token number immediately—no turning up and waiting blindly.",
+  },
+  {
+    number: "03",
+    title: "Track your queue live",
+    text: "Follow your exact token position and estimated wait from home, and head to the clinic when your turn is near.",
+  },
 ];
 
 export default async function Home() {
@@ -19,91 +33,90 @@ export default async function Home() {
     }),
   ]);
 
+  const clinicSlides: ClinicSlideItem[] = clinics.map((c) => ({
+    id: c.id,
+    name: c.name,
+    address: c.address,
+    city: c.city,
+    phone: c.phone,
+    openTime: c.openTime,
+    closeTime: c.closeTime,
+    doctorCount: c._count.doctors,
+  }));
+
   return (
     <main className="flex-1">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-teal-800 via-teal-700 to-emerald-600 px-4 py-16 text-white sm:py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Find a doctor. Skip the waiting room.</h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-teal-50">
-            Book an appointment and follow your place in the queue live, from home.
-          </p>
-          <div className="mt-8 text-left">
-            <SearchForm cities={cities} />
-          </div>
-          <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-teal-50">
-            <span>Popular:</span>
-            {specialties.slice(0, 5).map((name) => (
-              <Link
-                key={name}
-                href={`/doctors?specialty=${encodeURIComponent(name)}`}
-                className="rounded-full bg-white/15 px-3 py-1 hover:bg-white/25"
-              >
-                {name}
-              </Link>
-            ))}
-          </p>
-        </div>
-      </section>
+      {/* Hero with green gradient scrim over medical & doctor slideshow */}
+      <HeroSlideshow cities={cities} popularSpecialties={specialties.slice(0, 5)} />
 
-      {/* Specialties */}
-      <section className="mx-auto max-w-5xl px-4 py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Browse by specialty</h2>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+      {/* Browse by specialty */}
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Browse by specialty
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-600 sm:text-base">
+              Choose a medical department to see available doctors and consultation times.
+            </p>
+          </div>
+          <Link
+            href="/doctors"
+            className="group inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 transition-colors duration-200 hover:text-emerald-600 whitespace-nowrap"
+          >
+            <span>View all doctors</span>
+            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {specialties.map((name) => (
             <Link
               key={name}
               href={`/doctors?specialty=${encodeURIComponent(name)}`}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 hover:border-teal-600 hover:text-teal-700"
+              className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-800 transition-all duration-200 hover:border-teal-600 hover:bg-teal-50/70 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
             >
-              {name}
+              <span className="truncate">{name}</span>
+              <ArrowRight
+                className="ml-2 h-3.5 w-3.5 shrink-0 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-teal-700"
+                aria-hidden="true"
+              />
             </Link>
           ))}
         </div>
-        <p className="mt-5 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900">
-          Not sure who to see? Our symptom assistant is coming soon and will suggest the right specialist for you.
-        </p>
       </section>
 
-      {/* How it works */}
-      <section className="bg-white py-12">
-        <div className="mx-auto max-w-5xl px-4">
-          <h2 className="text-2xl font-bold text-gray-900">How Dakterly works</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <div key={step.title} className="rounded-2xl border border-gray-200 p-5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-700 font-bold text-white">
-                  {index + 1}
+      {/* How Dakterly works */}
+      <section className="border-y border-slate-200/80 bg-white py-14">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              How Dakterly works
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-600 sm:text-base">
+              Three straightforward steps from choosing a specialist to stepping into the consultation room.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
+            {steps.map((step) => (
+              <div
+                key={step.number}
+                className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 transition-colors duration-200 hover:border-teal-200 hover:bg-teal-50/30"
+              >
+                <span className="font-mono text-sm font-semibold text-teal-700 tabular-nums">
+                  {step.number}
                 </span>
-                <h3 className="mt-3 text-lg font-semibold text-gray-900">{step.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">{step.text}</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.text}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Clinics */}
-      <section className="mx-auto max-w-5xl px-4 py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Clinics on Dakterly</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {clinics.map((clinic) => (
-            <Link
-              key={clinic.id}
-              href={`/clinics/${clinic.id}`}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md"
-            >
-              <h3 className="font-semibold text-gray-900">{clinic.name}</h3>
-              <p className="mt-1 text-sm text-gray-600">
-                {clinic.address}, {clinic.city}
-              </p>
-              <p className="mt-3 text-sm font-medium text-teal-700">
-                {clinic._count.doctors} {clinic._count.doctors === 1 ? "doctor" : "doctors"}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Clinics on Dakterly slideshow */}
+      <ClinicsSlideshow clinics={clinicSlides} />
     </main>
   );
 }

@@ -2,14 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  cacheComponents: true,
-  allowedDevOrigins: ["4pgcjs0s-3000.inc1.devtunnels.ms"],
+  output: "standalone",
+  allowedDevOrigins: ["**.run.app", "**.devtunnels.ms", "localhost:3000", "127.0.0.1:3000"],
   experimental: {
     serverActions: {
-      allowedOrigins: ["4pgcjs0s-3000.inc1.devtunnels.ms"],
+      allowedOrigins: ["**.run.app", "**.devtunnels.ms", "localhost:3000", "127.0.0.1:3000"],
+      bodySizeLimit: "10mb",
     },
   },
-  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {

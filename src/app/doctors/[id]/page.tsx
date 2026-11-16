@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDoctor } from "@/lib/doctors";
-import { WEEKDAY_LONG, formatFee, formatTime, initials } from "@/lib/format";
+import { WEEKDAY_LONG, formatFee, formatTime } from "@/lib/format";
+import DoctorAvatar from "@/components/DoctorAvatar";
+import BackButton from "@/components/BackButton";
 
 export default async function DoctorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,22 +12,15 @@ export default async function DoctorPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <Link href="/doctors" className="text-sm text-teal-700 hover:underline">
-        &larr; Back to all doctors
-      </Link>
+      <BackButton href="/doctors" />
 
       <div className="mt-4 grid gap-6 md:grid-cols-3">
         <div className="space-y-6 md:col-span-2">
           {/* Header */}
-          <section className="flex items-start gap-5 rounded-2xl border border-gray-200 bg-white p-6">
-            <div
-              aria-hidden
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-teal-100 text-2xl font-bold text-teal-800"
-            >
-              {initials(doctor.name)}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{doctor.name}</h1>
+          <section className="flex flex-col items-start gap-4 rounded-2xl border border-gray-200 bg-white p-5 sm:flex-row sm:gap-5 sm:p-6">
+            <DoctorAvatar name={doctor.name} photoUrl={doctor.photoUrl} size="lg" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{doctor.name}</h1>
               <p className="mt-1">
                 <span className="inline-block rounded-full bg-teal-50 px-3 py-1 text-sm font-medium text-teal-800">
                   {doctor.specialty.name}

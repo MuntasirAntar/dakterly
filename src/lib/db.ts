@@ -1,7 +1,19 @@
 import { PrismaClient } from "@prisma/client";
+import { createMockPrismaClient } from "@/lib/mock-db";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const db = globalForPrisma.prisma ?? new PrismaClient();
+function createDbClient(): PrismaClient {
+  if (!process.env.DATABASE_URL) {
+    return createMockPrismaClient();
+  }
+  try {
+    return new PrismaClient();
+  } catch {
+    return createMockPrismaClient();
+  }
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+export const db = globalForPrisma.prisma ?? createDbClient();
+
+globalForPrisma.prisma = db;

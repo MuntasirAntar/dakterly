@@ -10,6 +10,7 @@ import { formatDate, nowInClinicTz } from "@/lib/time";
 import { cancelAppointment } from "@/app/actions/appointments";
 import StatusBadge from "@/components/StatusBadge";
 import QueueTracker from "@/components/QueueTracker";
+import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
 
 export default async function AppointmentPage({
@@ -35,9 +36,7 @@ export default async function AppointmentPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-      <Link href="/appointments" className="text-sm text-teal-700 hover:underline">
-        &larr; My appointments
-      </Link>
+      <BackButton href="/appointments" />
 
       {first(raw.booked) && (
         <p role="status" className="mt-4 rounded-lg bg-teal-50 p-3 text-sm font-medium text-teal-900">

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClinic, searchDoctors } from "@/lib/doctors";
 import DoctorCard from "@/components/DoctorCard";
+import BackButton from "@/components/BackButton";
 
 export default async function ClinicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,9 +12,7 @@ export default async function ClinicPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <Link href="/doctors" className="text-sm text-teal-700 hover:underline">
-        &larr; All doctors
-      </Link>
+      <BackButton href="/doctors" />
 
       <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-6">
         <h1 className="text-2xl font-bold text-gray-900">{clinic.name}</h1>
