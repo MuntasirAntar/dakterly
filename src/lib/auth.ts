@@ -1,45 +1,46 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { BOOTSTRAP_ADMIN_EMAIL } from "@/lib/firebase";
-import { readSessionPayload, type SessionRole } from "@/lib/session";
+import type { Role } from "@prisma/client";
+import { db } from "@/lib/db";
+import { readSession } from "@/lib/session";
 
-export type Role = SessionRole;
-
+// Where each kind of user lands after logging in.
 export function homePathFor(role: Role) {
   if (role === "SUPER_ADMIN") return "/superadmin";
   if (role === "CLINIC_ADMIN") return "/admin";
   return "/";
 }
 
+// Who is logged in? Loads the user fresh from the database on every request,
+// so a suspended or changed account takes effect immediately.
 export const getCurrentUser = cache(async () => {
-  const session = await readSessionPayload();
-  if (!session) return null;
+  const userId = await readSession();
+  if (!userId) return null;
 
-  const isBootstrap = session.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL;
-  const role: Role = isBootstrap ? "SUPER_ADMIN" : session.role ?? "PATIENT";
-
-  return {
-    id: session.userId,
-    name: session.name ?? session.email ?? "User",
-    email: session.email ?? "",
-    role,
-    clinicId: session.clinicId ?? null,
-    isActive: true,
-  };
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, role: true, clinicId: true, isActive: true },
+  });
+  if (!user || !user.isActive) return null;
+  return user;
 });
 
+// Use at the top of any page that needs a logged-in user.
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;
 }
 
+// Use at the top of any page that only certain roles may see.
 export async function requireRole(...roles: Role[]) {
   const user = await requireUser();
   if (!roles.includes(user.role)) redirect(homePathFor(user.role));
   return user;
 }
 
+// For pages a patient must see (like booking). Logged out? Go to login and
+// come back here afterwards. Staff accounts are sent to their own dashboard.
 export async function requirePatient(returnTo: string) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);

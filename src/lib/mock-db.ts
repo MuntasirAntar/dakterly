@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
 import type { PrismaClient } from "@prisma/client";
-import seedData from "./seed-data.json";
 
 type AnyRow = Record<string, unknown>;
 
@@ -41,13 +40,9 @@ function loadInitialStore(): Store {
   };
 
   try {
-    let raw: Partial<Store> = (seedData || {}) as Partial<Store>;
-    if (!raw.Doctor || raw.Doctor.length === 0) {
-      const filePath = path.join(process.cwd(), "sqlite-export.json");
-      if (fs.existsSync(filePath)) {
-        raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as Partial<Store>;
-      }
-    }
+    const filePath = path.join(process.cwd(), "sqlite-export.json");
+    if (!fs.existsSync(filePath)) return empty;
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as Partial<Store>;
 
     const superEnvPw = process.env.SUPERADMIN_PASSWORD;
     const users = (raw.User ?? []).map((u) => {

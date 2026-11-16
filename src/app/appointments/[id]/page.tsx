@@ -13,8 +13,6 @@ import QueueTracker from "@/components/QueueTracker";
 import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
 
-export const dynamic = "force-dynamic";
-
 export default async function AppointmentPage({
   params,
   searchParams,

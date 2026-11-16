@@ -3,7 +3,6 @@ import { requireRole } from "@/lib/auth";
 import { getSuperAdminDashboardData } from "@/lib/superadmin";
 import SuperAdminConsole from "@/components/SuperAdminConsole";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Super Admin | Dakterly" };
 
 export default async function SuperAdminPage() {

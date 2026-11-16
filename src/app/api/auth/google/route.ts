@@ -1,10 +1,12 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import bcrypt from "bcryptjs";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { NextResponse } from "next/server";
-import { BOOTSTRAP_ADMIN_EMAIL } from "@/lib/firebase";
+import { db } from "@/lib/db";
 import { safeNextPath } from "@/lib/redirect";
-import { createSession, type SessionRole } from "@/lib/session";
+import { createSession } from "@/lib/session";
 
 const FIREBASE_PROJECT_ID = (
   JSON.parse(fs.readFileSync(path.join(process.cwd(), "firebase-applet-config.json"), "utf-8")) as {
@@ -17,24 +19,17 @@ const FIREBASE_JWKS = createRemoteJWKSet(
 );
 
 export async function POST(request: Request) {
-  let body: { idToken?: unknown; next?: unknown; role?: unknown; clinicId?: unknown; name?: unknown };
+  let body: { idToken?: unknown; next?: unknown };
   try {
-    body = (await request.json()) as {
-      idToken?: unknown;
-      next?: unknown;
-      role?: unknown;
-      clinicId?: unknown;
-      name?: unknown;
-    };
+    body = (await request.json()) as { idToken?: unknown; next?: unknown };
   } catch {
     return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
   }
 
   if (typeof body.idToken !== "string" || !body.idToken) {
-    return NextResponse.json({ error: "Missing Firebase sign-in token." }, { status: 400 });
+    return NextResponse.json({ error: "Missing Google sign-in token." }, { status: 400 });
   }
 
-  let uid: string;
   let email: string;
   let displayName: string;
   try {
@@ -47,38 +42,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid Google account token." }, { status: 401 });
     }
     if (typeof payload.email !== "string" || !payload.email || payload.email_verified !== true) {
-      return NextResponse.json({ error: "Your account must have a verified email address." }, { status: 403 });
+      return NextResponse.json({ error: "Your Google account must have a verified email address." }, { status: 403 });
     }
 
-    uid = payload.sub;
     email = payload.email.trim().toLowerCase();
     displayName =
-      typeof body.name === "string" && body.name.trim().length >= 2
-        ? body.name.trim().slice(0, 80)
-        : typeof payload.name === "string" && payload.name.trim().length >= 2
-          ? payload.name.trim().slice(0, 80)
-          : email.split("@")[0].slice(0, 80);
+      typeof payload.name === "string" && payload.name.trim().length >= 2
+        ? payload.name.trim().slice(0, 80)
+        : email.split("@")[0].slice(0, 80);
   } catch {
-    return NextResponse.json({ error: "Sign-in could not be verified. Please try again." }, { status: 401 });
+    return NextResponse.json({ error: "Google sign-in could not be verified. Please try again." }, { status: 401 });
   }
 
-  const requestedRole =
-    body.role === "CLINIC_ADMIN" || body.role === "SUPER_ADMIN" || body.role === "PATIENT"
-      ? (body.role as SessionRole)
-      : "PATIENT";
+  const existing = await db.user.findUnique({ where: { email } });
 
-  const role: SessionRole = email === BOOTSTRAP_ADMIN_EMAIL ? "SUPER_ADMIN" : requestedRole;
-  const clinicId = typeof body.clinicId === "string" && role === "CLINIC_ADMIN" ? body.clinicId : null;
+  let userId: string;
+  if (existing) {
+    if (existing.role !== "PATIENT") {
+      return NextResponse.json(
+        { error: "Staff and admin accounts must log in using their email and password." },
+        { status: 403 },
+      );
+    }
+    if (!existing.isActive) {
+      return NextResponse.json(
+        { error: "This patient account has been suspended. Please contact support." },
+        { status: 403 },
+      );
+    }
+    userId = existing.id;
+  } else {
+    const created = await db.user.create({
+      data: {
+        name: displayName,
+        email,
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10),
+        role: "PATIENT",
+        isActive: true,
+      },
+    });
+    userId = created.id;
+    await db.auditLog.create({
+      data: {
+        userId,
+        action: "GOOGLE_PATIENT_SIGNUP",
+        entity: "User",
+        entityId: userId,
+      },
+    });
+  }
 
-  await createSession({
-    userId: uid,
-    email,
-    name: displayName,
-    role,
-    clinicId,
-  });
-
-  const defaultHome = role === "SUPER_ADMIN" ? "/superadmin" : role === "CLINIC_ADMIN" ? "/admin" : "/";
-  const redirectTo = safeNextPath(typeof body.next === "string" ? body.next : null) ?? defaultHome;
+  await createSession(userId);
+  const redirectTo = safeNextPath(typeof body.next === "string" ? body.next : null) ?? "/";
   return NextResponse.json({ ok: true, redirectTo });
 }

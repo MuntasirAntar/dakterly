@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
-import { OperationType, firestore, handleFirestoreError } from "@/lib/firebase";
-import { ACTION_LABELS, nextStatus, type QueueAction, type Status } from "@/lib/queue";
+import { useActionState } from "react";
+import { updateAppointmentStatus, type QueueFormState } from "@/app/actions/queue";
+import { ACTION_LABELS, type QueueAction } from "@/lib/queue";
 
 const STYLES: Record<QueueAction, string> = {
   check_in: "bg-teal-700 text-white hover:bg-teal-800",
@@ -13,124 +12,40 @@ const STYLES: Record<QueueAction, string> = {
   undo: "text-gray-600 underline hover:text-gray-900",
 };
 
-type Props = {
-  appointmentId: string;
-  slotLockId: string;
-  doctorId: string;
-  clinicId: string;
-  date: string;
-  currentStatus: Status;
-  actions: QueueAction[];
-  startBlocked?: boolean;
-};
+type Props = { appointmentId: string; actions: QueueAction[]; startBlocked?: boolean };
 
-export default function RowActions({
-  appointmentId,
-  slotLockId,
-  doctorId,
-  clinicId,
-  date,
-  currentStatus,
-  actions,
-  startBlocked = false,
-}: Props) {
-  const [pending, setPending] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+export default function RowActions({ appointmentId, actions, startBlocked = false }: Props) {
+  const [state, formAction, pending] = useActionState<QueueFormState, FormData>(updateAppointmentStatus, {});
 
   if (actions.length === 0) return null;
 
-  async function handleAction(action: QueueAction) {
-    if (action === "no_show" && !window.confirm("Mark this patient as a no-show?")) {
-      return;
-    }
-
-    const to = nextStatus(currentStatus, action);
-    if (!to) return;
-
-    setPending(true);
-    setErrorMsg(null);
-    try {
-      if (action === "start") {
-        const busySnap = await getDocs(
-          query(
-            collection(firestore, "appointments"),
-            where("clinicId", "==", clinicId),
-            where("doctorId", "==", doctorId),
-            where("date", "==", date),
-            where("status", "==", "IN_PROGRESS"),
-          ),
-        ).catch((err) => handleFirestoreError(err, OperationType.LIST, "appointments"));
-        if (!busySnap.empty) {
-          setErrorMsg("This doctor already has a patient in progress. Complete that visit first.");
-          return;
-        }
-      }
-
-      await runTransaction(firestore, async (tx) => {
-        const apptRef = doc(firestore, "appointments", appointmentId);
-        const lockRef = doc(firestore, "slotLocks", slotLockId);
-        const snap = await tx.get(apptRef);
-        if (!snap.exists()) throw new Error("NOT_FOUND");
-        const liveStatus = snap.data().status as Status;
-        if (liveStatus !== currentStatus) throw new Error("CONFLICT");
-
-        const ts = serverTimestamp();
-        const apptPatch: Record<string, unknown> = { status: to, updatedAt: ts };
-        const lockPatch: Record<string, unknown> = { status: to, updatedAt: ts };
-
-        if (action === "check_in") apptPatch.checkedInAt = ts;
-        if (action === "start") {
-          apptPatch.startedAt = ts;
-          lockPatch.startedAt = ts;
-        }
-        if (action === "complete") {
-          apptPatch.completedAt = ts;
-          lockPatch.completedAt = ts;
-        }
-        if (action === "undo" && currentStatus === "CHECKED_IN") {
-          apptPatch.checkedInAt = null;
-        }
-        if (action === "undo" && currentStatus === "IN_PROGRESS") {
-          apptPatch.startedAt = null;
-          lockPatch.startedAt = null;
-        }
-
-        tx.update(apptRef, apptPatch);
-        tx.update(lockRef, lockPatch);
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message === "CONFLICT") {
-        setErrorMsg("Someone else just updated this appointment.");
-      } else {
-        handleFirestoreError(err, OperationType.UPDATE, `appointments/${appointmentId}`);
-      }
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="appointmentId" value={appointmentId} />
       {actions.map((action) => {
         const blocked = action === "start" && startBlocked;
         return (
           <button
             key={action}
-            type="button"
+            type="submit"
+            name="action"
+            value={action}
             disabled={pending || blocked}
             title={blocked ? "Complete the current patient first" : undefined}
-            onClick={() => void handleAction(action)}
+            onClick={(event) => {
+              if (action === "no_show" && !window.confirm("Mark this patient as a no-show?")) event.preventDefault();
+            }}
             className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${STYLES[action]}`}
           >
             {ACTION_LABELS[action]}
           </button>
         );
       })}
-      {errorMsg && (
+      {state.error && (
         <p role="alert" className="w-full text-sm text-red-700">
-          {errorMsg}
+          {state.error}
         </p>
       )}
-    </div>
+    </form>
   );
 }

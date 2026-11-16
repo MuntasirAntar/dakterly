@@ -12,7 +12,6 @@ import DoctorAvatar from "@/components/DoctorAvatar";
 import BackButton from "@/components/BackButton";
 import SubmitButton from "@/components/SubmitButton";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Book an appointment | Dakterly" };
 
 export default async function BookPage({

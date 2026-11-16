@@ -10,10 +10,10 @@ type Props = {
     role: string;
   } | null;
   dashboardHref: string | null;
-  onLogout: () => Promise<void>;
+  logoutAction: () => Promise<void>;
 };
 
-export default function MobileNavMenu({ user, dashboardHref, onLogout }: Props) {
+export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -75,16 +75,14 @@ export default function MobileNavMenu({ user, dashboardHref, onLogout }: Props) 
                 </Link>
                 <div className="border-t border-slate-100 pt-2">
                   <p className="px-3 pb-2 text-xs text-slate-500">Signed in as {user.name}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpen(false);
-                      void onLogout();
-                    }}
-                    className="w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-left text-sm font-semibold text-rose-700"
-                  >
-                    Log out
-                  </button>
+                  <form action={logoutAction}>
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-left text-sm font-semibold text-rose-700"
+                    >
+                      Log out
+                    </button>
+                  </form>
                 </div>
               </>
             ) : (

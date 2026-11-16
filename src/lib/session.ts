@@ -1,16 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 
-export type SessionRole = "PATIENT" | "CLINIC_ADMIN" | "SUPER_ADMIN";
-
-export type SessionPayload = {
-  userId: string;
-  email?: string;
-  name?: string;
-  role?: SessionRole;
-  clinicId?: string | null;
-};
-
 const COOKIE_NAME = "dakterly_session";
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
@@ -37,11 +27,9 @@ async function cookieSecurityOptions() {
   };
 }
 
-export async function createSession(input: string | SessionPayload) {
-  const payload: SessionPayload =
-    typeof input === "string" ? { userId: input } : input;
-
-  const token = await new SignJWT(payload)
+// Put a signed token in a cookie. The token holds ONLY the user's id.
+export async function createSession(userId: string) {
+  const token = await new SignJWT({ userId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -54,31 +42,16 @@ export async function createSession(input: string | SessionPayload) {
   });
 }
 
-export async function readSessionPayload(): Promise<SessionPayload | null> {
+// Returns the user id from a valid cookie, or null.
+export async function readSession(): Promise<string | null> {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getKey(), { algorithms: ["HS256"] });
-    if (typeof payload.userId !== "string" || !payload.userId) return null;
-    const role =
-      payload.role === "SUPER_ADMIN" || payload.role === "CLINIC_ADMIN" || payload.role === "PATIENT"
-        ? payload.role
-        : undefined;
-    return {
-      userId: payload.userId,
-      email: typeof payload.email === "string" ? payload.email : undefined,
-      name: typeof payload.name === "string" ? payload.name : undefined,
-      role,
-      clinicId: typeof payload.clinicId === "string" ? payload.clinicId : null,
-    };
+    return typeof payload.userId === "string" ? payload.userId : null;
   } catch {
-    return null;
+    return null; // expired, tampered with, or signed with another secret
   }
-}
-
-export async function readSession(): Promise<string | null> {
-  const payload = await readSessionPayload();
-  return payload?.userId ?? null;
 }
 
 export async function deleteSession() {

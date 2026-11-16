@@ -2,10 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckCircle2, Mail, Send } from "lucide-react";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { useFirebase } from "@/components/FirebaseProvider";
-import { OperationType, clampString, firestore, handleFirestoreError, optionalString } from "@/lib/firebase";
-import { friendlyFirebaseAuthError, signInWithGoogle } from "@/lib/firebase-client";
 
 const PARTNER_EMAIL = "partnerships@dakterly.com";
 
@@ -51,8 +47,8 @@ function buildMailtoHref(v: FormValues) {
 }
 
 export default function PartnerClinicForm() {
-  const { firebaseUser } = useFirebase();
   const [values, setValues] = useState<FormValues>(INITIAL);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
@@ -64,43 +60,26 @@ export default function PartnerClinicForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setSubmitting(true);
 
     try {
-      let currentUser = firebaseUser;
-      if (!currentUser) {
-        try {
-          const authRes = await signInWithGoogle();
-          currentUser = authRes.user;
-        } catch (err) {
-          setError(friendlyFirebaseAuthError(err));
-          return;
-        }
+      const res = await fetch("/api/clinic-inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not send inquiry. Please try again.");
+        setFieldErrors(data.fieldErrors ?? {});
+        return;
       }
-
-      const referenceId = `DK-CL-${Date.now().toString(36).toUpperCase().slice(-6)}`;
-      const inquiryId = `${referenceId}_${currentUser.uid.slice(0, 8)}`;
-
-      try {
-        await setDoc(doc(firestore, "clinicInquiries", inquiryId), {
-          submittedByUid: currentUser.uid,
-          clinicName: clampString(values.clinicName, 120, 2),
-          contactName: clampString(values.contactName, 80, 2),
-          email: clampString(values.email.toLowerCase(), 160, 3),
-          phone: clampString(values.phone, 30, 6),
-          city: clampString(values.city, 60, 2),
-          doctorCount: optionalString(values.doctorCount, 30),
-          message: optionalString(values.message, 1000),
-          referenceId,
-          createdAt: serverTimestamp(),
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, `clinicInquiries/${inquiryId}`);
-      }
-
-      setSubmittedRef(referenceId);
+      setSubmittedRef(data.referenceId);
       setSubmittedSnapshot(values);
       setValues(INITIAL);
+    } catch {
+      setError("Network error while sending inquiry. You can also email us directly below.");
     } finally {
       setSubmitting(false);
     }
@@ -112,10 +91,10 @@ export default function PartnerClinicForm() {
         <div className="flex items-start gap-3">
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700" aria-hidden="true" />
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Inquiry saved to Dakterly</h3>
+            <h3 className="text-lg font-bold text-slate-900">Inquiry received</h3>
             <p className="mt-1 text-sm text-slate-700">
               Thank you, <span className="font-semibold">{submittedSnapshot.contactName}</span>. Your partnership request for{" "}
-              <span className="font-semibold">{submittedSnapshot.clinicName}</span> has been recorded under reference{" "}
+              <span className="font-semibold">{submittedSnapshot.clinicName}</span> has been logged under reference{" "}
               <span className="font-mono font-semibold text-teal-800">{submittedRef}</span>.
             </p>
           </div>
@@ -157,26 +136,24 @@ export default function PartnerClinicForm() {
           Clinic or hospital name
           <input
             required
-            minLength={2}
-            maxLength={120}
             value={values.clinicName}
             onChange={(e) => setValues({ ...values, clinicName: e.target.value })}
             placeholder="e.g. Crescent Diagnostic Center"
             className={inputClass}
           />
+          {fieldErrors.clinicName?.[0] && <span className="mt-1 block text-xs text-red-600">{fieldErrors.clinicName[0]}</span>}
         </label>
 
         <label className="block text-sm font-medium text-slate-700">
           Contact person
           <input
             required
-            minLength={2}
-            maxLength={80}
             value={values.contactName}
             onChange={(e) => setValues({ ...values, contactName: e.target.value })}
             placeholder="Dr. / Coordinator name"
             className={inputClass}
           />
+          {fieldErrors.contactName?.[0] && <span className="mt-1 block text-xs text-red-600">{fieldErrors.contactName[0]}</span>}
         </label>
       </div>
 
@@ -186,12 +163,12 @@ export default function PartnerClinicForm() {
           <input
             type="email"
             required
-            maxLength={160}
             value={values.email}
             onChange={(e) => setValues({ ...values, email: e.target.value })}
             placeholder="admin@yourclinic.com"
             className={inputClass}
           />
+          {fieldErrors.email?.[0] && <span className="mt-1 block text-xs text-red-600">{fieldErrors.email[0]}</span>}
         </label>
 
         <label className="block text-sm font-medium text-slate-700">
@@ -199,13 +176,12 @@ export default function PartnerClinicForm() {
           <input
             type="tel"
             required
-            minLength={6}
-            maxLength={30}
             value={values.phone}
             onChange={(e) => setValues({ ...values, phone: e.target.value })}
             placeholder="01700-000000"
             className={inputClass}
           />
+          {fieldErrors.phone?.[0] && <span className="mt-1 block text-xs text-red-600">{fieldErrors.phone[0]}</span>}
         </label>
       </div>
 
@@ -214,13 +190,12 @@ export default function PartnerClinicForm() {
           City
           <input
             required
-            minLength={2}
-            maxLength={60}
             value={values.city}
             onChange={(e) => setValues({ ...values, city: e.target.value })}
             placeholder="Dhaka, Chattogram, Sylhet..."
             className={inputClass}
           />
+          {fieldErrors.city?.[0] && <span className="mt-1 block text-xs text-red-600">{fieldErrors.city[0]}</span>}
         </label>
 
         <label className="block text-sm font-medium text-slate-700">
@@ -242,19 +217,12 @@ export default function PartnerClinicForm() {
         Specialties &amp; notes (optional)
         <textarea
           rows={3}
-          maxLength={1000}
           value={values.message}
           onChange={(e) => setValues({ ...values, message: e.target.value })}
           placeholder="Tell us your clinic hours, departments, or preferred onboarding date."
           className={inputClass}
         />
       </label>
-
-      {!firebaseUser && (
-        <p className="text-xs text-slate-500">
-          Clicking submit will verify your identity with Google before saving to Firestore, or email us directly below.
-        </p>
-      )}
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <button

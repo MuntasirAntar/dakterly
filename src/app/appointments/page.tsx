@@ -6,7 +6,6 @@ import { first, type SearchParams } from "@/lib/params";
 import { nowInClinicTz } from "@/lib/time";
 import AppointmentCard from "@/components/AppointmentCard";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My appointments | Dakterly" };
 
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {

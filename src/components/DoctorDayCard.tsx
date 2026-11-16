@@ -6,10 +6,6 @@ import StatusBadge from "@/components/StatusBadge";
 
 type Row = {
   id: string;
-  slotLockId: string;
-  doctorId: string;
-  clinicId: string;
-  date: string;
   slotTime: string;
   tokenNumber: number;
   status: string;
@@ -67,11 +63,6 @@ export default function DoctorDayCard({ doctor, rows }: Props) {
                 <StatusBadge status={row.status} />
                 <RowActions
                   appointmentId={row.id}
-                  slotLockId={row.slotLockId}
-                  doctorId={row.doctorId}
-                  clinicId={row.clinicId}
-                  date={row.date}
-                  currentStatus={row.status as Status}
                   actions={actionsFor(row.status as Status)}
                   startBlocked={Boolean(inProgress) && row.status === "CHECKED_IN"}
                 />
