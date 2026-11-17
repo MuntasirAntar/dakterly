@@ -154,3 +154,19 @@ model ClinicInquiry {
 
   @@index([status, createdAt])
 }
+
+model DoctorRemovalRequest {
+  id          String   @id @default(cuid())
+  doctorId    String
+  doctorName  String
+  specialty   String
+  clinicId    String
+  clinicName  String
+  requestedBy String
+  reason      String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([clinicId])
+}

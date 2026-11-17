@@ -82,6 +82,18 @@ export default async function SuperAdminPage() {
       emailSent: Boolean(q.emailSent),
       createdAt: q.createdAt instanceof Date ? q.createdAt.toISOString() : String(q.createdAt),
     })),
+    doctorRemovalRequests: raw.doctorRemovalRequests.map((r) => ({
+      id: r.id,
+      doctorId: r.doctorId,
+      doctorName: r.doctorName,
+      specialty: r.specialty,
+      clinicId: r.clinicId,
+      clinicName: r.clinicName,
+      requestedBy: r.requestedBy,
+      reason: r.reason ?? null,
+      status: r.status,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    })),
   };
 
   return (

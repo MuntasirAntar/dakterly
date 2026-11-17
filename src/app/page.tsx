@@ -5,6 +5,8 @@ import { getFilterOptions } from "@/lib/doctors";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import ClinicsSlideshow, { type ClinicSlideItem } from "@/components/ClinicsSlideshow";
 
+export const dynamic = "force-dynamic";
+
 const steps = [
   {
     number: "01",

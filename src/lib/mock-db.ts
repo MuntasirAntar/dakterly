@@ -15,6 +15,7 @@ interface Store {
   Reminder: AnyRow[];
   AuditLog: AnyRow[];
   ClinicInquiry: AnyRow[];
+  DoctorRemovalRequest: AnyRow[];
 }
 
 function toDate(val: unknown): Date | null {
@@ -39,6 +40,7 @@ function loadInitialStore(): Store {
     Reminder: [],
     AuditLog: [],
     ClinicInquiry: [],
+    DoctorRemovalRequest: [],
   };
 
   try {
@@ -92,6 +94,10 @@ function loadInitialStore(): Store {
         ...q,
         emailSent: toBool(q.emailSent),
         createdAt: toDate(q.createdAt) ?? new Date(),
+      })),
+      DoctorRemovalRequest: (raw.DoctorRemovalRequest ?? []).map((r) => ({
+        ...r,
+        createdAt: toDate(r.createdAt) ?? new Date(),
       })),
     };
   } catch (err) {
@@ -406,6 +412,9 @@ export function createMockPrismaClient(): PrismaClient {
           ...(model === "ClinicInquiry"
             ? { status: "NEW", emailSent: false, doctorCount: null, message: null }
             : {}),
+          ...(model === "DoctorRemovalRequest"
+            ? { status: "PENDING", reason: null }
+            : {}),
           ...data,
         };
         store[model].push(record);
@@ -473,6 +482,7 @@ export function createMockPrismaClient(): PrismaClient {
     reminder: createDelegate("Reminder"),
     auditLog: createDelegate("AuditLog"),
     clinicInquiry: createDelegate("ClinicInquiry"),
+    doctorRemovalRequest: createDelegate("DoctorRemovalRequest"),
     $disconnect: async () => {},
   } as unknown as PrismaClient;
 }

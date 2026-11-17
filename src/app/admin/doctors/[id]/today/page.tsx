@@ -47,32 +47,34 @@ export default async function TodayListPage({ params }: { params: Promise<{ id: 
         {rows.length === 0 ? (
           <p className="py-8 text-gray-600">No appointments for today.</p>
         ) : (
-          <table className="mt-4 w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-gray-400 text-xs uppercase tracking-wide text-gray-700">
-                <th className="py-2 pr-2">#</th>
-                <th className="py-2 pr-2">Time</th>
-                <th className="py-2 pr-2">Patient</th>
-                <th className="py-2 pr-2">Phone</th>
-                <th className="py-2 pr-2">Status</th>
-                <th className="py-2 text-center">Seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-200 print:break-inside-avoid" data-testid="print-row">
-                  <td className="py-2.5 pr-2 font-bold">{row.tokenNumber}</td>
-                  <td className="py-2.5 pr-2 whitespace-nowrap">{formatTime(row.slotTime)}</td>
-                  <td className="py-2.5 pr-2 font-medium">{row.patient.name}</td>
-                  <td className="py-2.5 pr-2 whitespace-nowrap">{row.patient.phone ?? "-"}</td>
-                  <td className="py-2.5 pr-2">{statusText(row.status)}</td>
-                  <td className="py-2.5 text-center">
-                    <span className="inline-block h-5 w-5 border-2 border-gray-500 align-middle" aria-hidden="true" />
-                  </td>
+          <div className="mt-4 overflow-x-auto print:overflow-visible">
+            <table className="min-w-[520px] w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-400 text-xs uppercase tracking-wide text-gray-700">
+                  <th className="py-2 pr-2">#</th>
+                  <th className="py-2 pr-2">Time</th>
+                  <th className="py-2 pr-2">Patient</th>
+                  <th className="py-2 pr-2">Phone</th>
+                  <th className="py-2 pr-2">Status</th>
+                  <th className="py-2 text-center">Seen</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-b border-gray-200 print:break-inside-avoid" data-testid="print-row">
+                    <td className="py-2.5 pr-2 font-bold">{row.tokenNumber}</td>
+                    <td className="py-2.5 pr-2 whitespace-nowrap">{formatTime(row.slotTime)}</td>
+                    <td className="py-2.5 pr-2 font-medium">{row.patient.name}</td>
+                    <td className="py-2.5 pr-2 whitespace-nowrap">{row.patient.phone ?? "-"}</td>
+                    <td className="py-2.5 pr-2">{statusText(row.status)}</td>
+                    <td className="py-2.5 text-center">
+                      <span className="inline-block h-5 w-5 border-2 border-gray-500 align-middle" aria-hidden="true" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <footer className="mt-6 border-t border-gray-300 pt-3 text-xs text-gray-600">

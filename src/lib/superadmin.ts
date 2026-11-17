@@ -15,6 +15,7 @@ export async function getSuperAdminDashboardData(userQuery?: string) {
     todayAppointmentCount,
     auditLogs,
     clinicInquiries,
+    doctorRemovalRequests,
   ] = await Promise.all([
     db.clinic.findMany({
       orderBy: { name: "asc" },
@@ -82,6 +83,10 @@ export async function getSuperAdminDashboardData(userQuery?: string) {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    db.doctorRemovalRequest.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
   ]);
 
   return {
@@ -94,6 +99,7 @@ export async function getSuperAdminDashboardData(userQuery?: string) {
       patients: patientCount,
       todayAppointments: todayAppointmentCount,
       newPartnershipRequests: clinicInquiries.filter((q) => q.status === "NEW").length,
+      pendingRemovalRequests: doctorRemovalRequests.filter((r) => r.status === "PENDING").length,
     },
     clinics,
     doctors,
@@ -102,5 +108,6 @@ export async function getSuperAdminDashboardData(userQuery?: string) {
     users,
     auditLogs,
     clinicInquiries,
+    doctorRemovalRequests,
   };
 }

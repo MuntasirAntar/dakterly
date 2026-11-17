@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser, homePathFor } from "@/lib/auth";
 import { logout } from "@/app/actions/auth";
+import DesktopNavLinks from "@/components/DesktopNavLinks";
 import MobileNavMenu from "@/components/MobileNavMenu";
 
 export default async function Navbar() {
@@ -11,8 +13,8 @@ export default async function Navbar() {
       ? process.env.DEMO_NOW
       : null;
 
-  const navLinkClass =
-    "relative py-1.5 text-sm font-medium text-slate-600 whitespace-nowrap shrink-0 transition-colors duration-200 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:bg-teal-600 after:transition-transform after:duration-200 hover:after:scale-x-100";
+  const userSummary = user ? { name: user.name, role: user.role } : null;
+  const dashboardHref = user ? homePathFor(user.role) : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md print:hidden">
@@ -30,57 +32,29 @@ export default async function Navbar() {
         </Link>
 
         {/* Mobile menu (< md) */}
-        <MobileNavMenu
-          user={user ? { name: user.name, role: user.role } : null}
-          dashboardHref={user ? homePathFor(user.role) : null}
-          logoutAction={logout}
-        />
+        <Suspense fallback={null}>
+          <MobileNavMenu
+            user={userSummary}
+            dashboardHref={dashboardHref}
+            logoutAction={logout}
+          />
+        </Suspense>
 
         {/* Desktop navigation (md+) */}
-        <div className="hidden items-center gap-6 md:flex">
-          <Link href="/doctors" className={navLinkClass}>
-            Find doctors
-          </Link>
-          <Link href="/join-clinic" className={navLinkClass}>
-            For clinics
-          </Link>
+        <div className="hidden items-center gap-3 lg:gap-4 md:flex">
+          <Suspense fallback={null}>
+            <DesktopNavLinks user={userSummary} dashboardHref={dashboardHref} />
+          </Suspense>
 
-          {user ? (
-            <>
-              {user.role === "PATIENT" ? (
-                <Link href="/appointments" className={navLinkClass}>
-                  My appointments
-                </Link>
-              ) : (
-                <Link href={homePathFor(user.role)} className={navLinkClass}>
-                  Dashboard
-                </Link>
-              )}
-              <span className="hidden text-sm text-slate-500 whitespace-nowrap lg:inline">{user.name}</span>
-              <form action={logout} className="shrink-0">
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 whitespace-nowrap shrink-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
-                >
-                  Log out
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex items-center gap-2.5 shrink-0">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center rounded-lg border border-teal-200 bg-teal-50/50 px-4 py-2 text-sm font-medium text-teal-800 whitespace-nowrap shrink-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-900 hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+          {user && (
+            <form action={logout} className="shrink-0">
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 whitespace-nowrap shrink-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
               >
-                Log in
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white whitespace-nowrap shrink-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md hover:shadow-teal-700/20 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
-              >
-                Sign up
-              </Link>
-            </div>
+                Log out
+              </button>
+            </form>
           )}
         </div>
       </nav>

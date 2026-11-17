@@ -45,29 +45,31 @@ export default async function DoctorPage({ params }: { params: Promise<{ id: str
           )}
 
           {/* Weekly schedule */}
-          <section className="rounded-2xl border border-gray-200 bg-white p-6">
+          <section className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900">Weekly schedule</h2>
-            <table className="mt-3 w-full text-sm">
-              <tbody>
-                {WEEKDAY_LONG.map((dayName, weekday) => {
-                  const rows = doctor.schedules.filter((s) => s.weekday === weekday);
-                  return (
-                    <tr key={dayName} className="border-t border-gray-100">
-                      <th scope="row" className="w-32 py-2.5 text-left font-medium text-gray-800">
-                        {dayName}
-                      </th>
-                      <td className="py-2.5 text-gray-700">
-                        {rows.length > 0 ? (
-                          rows.map((r) => `${formatTime(r.startTime)} – ${formatTime(r.endTime)}`).join(", ")
-                        ) : (
-                          <span className="text-gray-400">Not available</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {WEEKDAY_LONG.map((dayName, weekday) => {
+                    const rows = doctor.schedules.filter((s) => s.weekday === weekday);
+                    return (
+                      <tr key={dayName} className="border-t border-gray-100">
+                        <th scope="row" className="w-28 py-2.5 pr-3 text-left font-medium text-gray-800 sm:w-32">
+                          {dayName}
+                        </th>
+                        <td className="py-2.5 text-gray-700">
+                          {rows.length > 0 ? (
+                            rows.map((r) => `${formatTime(r.startTime)} – ${formatTime(r.endTime)}`).join(", ")
+                          ) : (
+                            <span className="text-gray-400">Not available</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
 

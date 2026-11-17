@@ -75,11 +75,11 @@ export default async function BookPage({
       ) : (
         <>
           <h2 className="mt-8 text-lg font-semibold text-gray-900">1. Choose a day</h2>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-7">
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-7">
             {days.map((day) => {
               const chip = dateChip(day.date);
               const isSelected = day.date === selected.date;
-              const base = "rounded-xl border px-2 py-2.5 text-center text-sm";
+              const base = "rounded-xl border px-2 py-2.5 text-center text-sm transition-colors";
               const inner = (
                 <>
                   <span className="block text-xs">{chip.weekday}</span>
@@ -110,13 +110,13 @@ export default async function BookPage({
           </div>
 
           <h2 className="mt-8 text-lg font-semibold text-gray-900">2. Choose a time on {formatDate(selected.date)}</h2>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {selected.slots.map((time) => (
               <Link
                 key={time}
                 href={`/doctors/${doctor.id}/book?date=${selected.date}&slot=${time}`}
                 aria-current={time === slot ? "true" : undefined}
-                className={`rounded-lg border px-2 py-2 text-center text-sm font-medium ${
+                className={`min-h-[42px] flex items-center justify-center rounded-lg border px-2.5 py-2 text-center text-sm font-medium transition-colors ${
                   time === slot ? "border-teal-700 bg-teal-700 text-white" : "border-gray-300 bg-white text-gray-800 hover:border-teal-600"
                 }`}
               >

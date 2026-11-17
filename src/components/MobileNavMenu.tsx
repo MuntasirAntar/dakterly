@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 type Props = {
@@ -15,6 +16,27 @@ type Props = {
 
 export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Props) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const isManageDoctorsView =
+    pathname.startsWith("/admin") && searchParams.get("view") === "manage-doctors";
+  const isFindDoctors = pathname === "/doctors" || pathname.startsWith("/doctors/");
+  const isForClinics = pathname === "/join-clinic" || pathname.startsWith("/join-clinic/");
+  const isAppointments = pathname === "/appointments" || pathname.startsWith("/appointments/");
+  const isDashboard =
+    dashboardHref !== null &&
+    (user?.role === "CLINIC_ADMIN"
+      ? pathname.startsWith("/admin") && !isManageDoctorsView
+      : pathname.startsWith(dashboardHref));
+  const isLogin = pathname === "/login";
+  const isRegister = pathname === "/register";
+
+  function drawerItemClass(active: boolean) {
+    return active
+      ? "rounded-lg border-l-4 border-teal-700 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-900"
+      : "rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800";
+  }
 
   return (
     <div className="md:hidden">
@@ -22,14 +44,24 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
         {!user ? (
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-1.5 text-xs font-semibold text-teal-800 whitespace-nowrap"
+            aria-current={isLogin ? "page" : undefined}
+            className={`inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+              isLogin
+                ? "border-teal-700 bg-teal-700 text-white"
+                : "border-teal-200 bg-teal-50/70 text-teal-800"
+            }`}
           >
             Log in
           </Link>
         ) : (
           <Link
             href={user.role === "PATIENT" ? "/appointments" : (dashboardHref ?? "/")}
-            className="inline-flex items-center justify-center rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-1.5 text-xs font-semibold text-teal-800 whitespace-nowrap"
+            aria-current={(user.role === "PATIENT" ? isAppointments : isDashboard) ? "page" : undefined}
+            className={`inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+              (user.role === "PATIENT" ? isAppointments : isDashboard)
+                ? "border-teal-700 bg-teal-700 text-white"
+                : "border-teal-200 bg-teal-50/70 text-teal-800"
+            }`}
           >
             {user.role === "PATIENT" ? "My visits" : "Dashboard"}
           </Link>
@@ -52,14 +84,16 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
             <Link
               href="/doctors"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+              aria-current={isFindDoctors ? "page" : undefined}
+              className={drawerItemClass(isFindDoctors)}
             >
               Find doctors
             </Link>
             <Link
               href="/join-clinic"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+              aria-current={isForClinics ? "page" : undefined}
+              className={drawerItemClass(isForClinics)}
             >
               For clinics
             </Link>
@@ -69,10 +103,21 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
                 <Link
                   href={user.role === "PATIENT" ? "/appointments" : (dashboardHref ?? "/")}
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+                  aria-current={(user.role === "PATIENT" ? isAppointments : isDashboard) ? "page" : undefined}
+                  className={drawerItemClass(user.role === "PATIENT" ? isAppointments : isDashboard)}
                 >
                   {user.role === "PATIENT" ? "My appointments" : "Dashboard"}
                 </Link>
+                {user.role === "CLINIC_ADMIN" && (
+                  <Link
+                    href="/admin?view=manage-doctors"
+                    onClick={() => setOpen(false)}
+                    aria-current={isManageDoctorsView ? "page" : undefined}
+                    className={drawerItemClass(isManageDoctorsView)}
+                  >
+                    Manage Doctors
+                  </Link>
+                )}
                 <div className="border-t border-slate-100 pt-2">
                   <p className="px-3 pb-2 text-xs text-slate-500">Signed in as {user.name}</p>
                   <form action={logoutAction}>
@@ -90,14 +135,22 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="inline-flex items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800"
+                  aria-current={isLogin ? "page" : undefined}
+                  className={`inline-flex items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-semibold ${
+                    isLogin
+                      ? "border-teal-700 bg-teal-700 text-white"
+                      : "border-teal-200 bg-teal-50 text-teal-800"
+                  }`}
                 >
                   Log in
                 </Link>
                 <Link
                   href="/register"
                   onClick={() => setOpen(false)}
-                  className="inline-flex items-center justify-center rounded-lg bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white"
+                  aria-current={isRegister ? "page" : undefined}
+                  className={`inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-semibold text-white ${
+                    isRegister ? "bg-emerald-600" : "bg-teal-700"
+                  }`}
                 >
                   Sign up
                 </Link>

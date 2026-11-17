@@ -4,11 +4,29 @@ import { createMockPrismaClient } from "@/lib/mock-db";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+function isConnectionOrAuthError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = "name" in err ? String((err as { name?: unknown }).name) : "";
+  const code = "code" in err ? String((err as { code?: unknown }).code) : "";
+  const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+  if (name === "PrismaClientInitializationError") return true;
+  if (/^P10(00|01|02|03|08|11|17)$/.test(code)) return true;
+  return /Authentication failed|Can't reach database server|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(message);
+}
+
 function createPostgresClient(): PrismaClient {
   const base = new PrismaClient();
-  let schemaReady: Promise<void> | null = null;
+  let schemaReady: Promise<boolean> | null = null;
+  let mockFallback: PrismaClient | null = null;
 
-  const ensureSchema = () => {
+  const getMock = () => {
+    if (!mockFallback) {
+      mockFallback = createMockPrismaClient();
+    }
+    return mockFallback;
+  };
+
+  const ensureSchema = (): Promise<boolean> => {
     if (!schemaReady) {
       const superPw = process.env.SUPERADMIN_PASSWORD || "SuperAdmin@12345";
       const superHash = bcrypt.hashSync(superPw, 10);
@@ -37,25 +55,76 @@ function createPostgresClient(): PrismaClient {
         await base.$executeRawUnsafe(
           'CREATE INDEX IF NOT EXISTS "ClinicInquiry_status_createdAt_idx" ON "ClinicInquiry"("status", "createdAt")',
         );
+        await base.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "DoctorRemovalRequest" (
+            "id" TEXT NOT NULL,
+            "doctorId" TEXT NOT NULL,
+            "doctorName" TEXT NOT NULL,
+            "specialty" TEXT NOT NULL,
+            "clinicId" TEXT NOT NULL,
+            "clinicName" TEXT NOT NULL,
+            "requestedBy" TEXT NOT NULL,
+            "reason" TEXT,
+            "status" TEXT NOT NULL DEFAULT 'PENDING',
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "DoctorRemovalRequest_pkey" PRIMARY KEY ("id")
+          )
+        `);
+        await base.$executeRawUnsafe(
+          'CREATE INDEX IF NOT EXISTS "DoctorRemovalRequest_status_createdAt_idx" ON "DoctorRemovalRequest"("status", "createdAt")',
+        );
+        await base.$executeRawUnsafe(
+          'CREATE INDEX IF NOT EXISTS "DoctorRemovalRequest_clinicId_idx" ON "DoctorRemovalRequest"("clinicId")',
+        );
         await base.$executeRaw`
           INSERT INTO "User" ("id", "name", "email", "passwordHash", "role", "isActive", "mustChangePassword")
           VALUES ('superadmin_default', 'Super Admin', 'superadmin@example.com', ${superHash}, 'SUPER_ADMIN', true, false)
           ON CONFLICT ("email") DO UPDATE
           SET "passwordHash" = EXCLUDED."passwordHash", "isActive" = true
         `;
-      })().catch(() => {
+        return true;
+      })().catch((err) => {
+        if (isConnectionOrAuthError(err)) {
+          console.warn("[Dakterly] PostgreSQL unavailable or invalid credentials — using mock database.");
+          return false;
+        }
         schemaReady = null;
+        return true;
       });
     }
     return schemaReady;
   };
 
+  const runOnMock = (model: string, operation: string, args: unknown) => {
+    const mock = getMock() as unknown as Record<string, Record<string, (a: unknown) => Promise<unknown>>>;
+    const key = model.charAt(0).toLowerCase() + model.slice(1);
+    const fn = mock[key]?.[operation];
+    if (typeof fn === "function") {
+      return fn(args);
+    }
+    throw new Error(`Unsupported mock operation: ${key}.${operation}`);
+  };
+
   return base.$extends({
     query: {
       $allModels: {
-        async $allOperations({ args, query }) {
-          await ensureSchema();
-          return query(args);
+        async $allOperations({ model, operation, args, query }) {
+          if (mockFallback) {
+            return runOnMock(model, operation, args);
+          }
+          const ok = await ensureSchema();
+          if (!ok) {
+            return runOnMock(model, operation, args);
+          }
+          try {
+            return await query(args);
+          } catch (err) {
+            if (isConnectionOrAuthError(err)) {
+              console.warn("[Dakterly] PostgreSQL query failed — falling back to mock database.");
+              return runOnMock(model, operation, args);
+            }
+            throw err;
+          }
         },
       },
     },
@@ -63,7 +132,8 @@ function createPostgresClient(): PrismaClient {
 }
 
 function createDbClient(): PrismaClient {
-  if (!process.env.DATABASE_URL) {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url || (!url.startsWith("postgres://") && !url.startsWith("postgresql://"))) {
     return createMockPrismaClient();
   }
   try {

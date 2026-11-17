@@ -402,11 +402,14 @@ export async function importDoctorsCsvAction(_prev: AdminActionState, formData: 
 
 const VALID_INQUIRY_STATUSES = new Set(["NEW", "REVIEWED", "APPROVED", "DISMISSED"]);
 
-export async function updatePartnershipStatusAction(formData: FormData): Promise<void> {
+export async function updatePartnershipStatusDirectAction(
+  inquiryId: string,
+  status: "NEW" | "REVIEWED" | "APPROVED" | "DISMISSED",
+): Promise<AdminActionState> {
   const actor = await requireRole("SUPER_ADMIN");
-  const inquiryId = str(formData, "inquiryId");
-  const status = str(formData, "status");
-  if (!inquiryId || !VALID_INQUIRY_STATUSES.has(status)) return;
+  if (!inquiryId || !VALID_INQUIRY_STATUSES.has(status)) {
+    return { ok: false, error: "Invalid partnership status request." };
+  }
 
   await db.clinicInquiry.update({
     where: { id: inquiryId },
@@ -415,20 +418,23 @@ export async function updatePartnershipStatusAction(formData: FormData): Promise
 
   await logAudit(actor.id, `PARTNERSHIP_${status}`, "ClinicInquiry", inquiryId);
   revalidateAll();
+  return { ok: true, message: `Marked request as ${status.toLowerCase()}.` };
 }
 
-export async function approvePartnershipCreateClinicAction(formData: FormData): Promise<void> {
+export async function approvePartnershipDirectAction(
+  inquiryId: string,
+  addressInput?: string,
+): Promise<{ ok: boolean; clinicId?: string; message?: string; error?: string }> {
   const actor = await requireRole("SUPER_ADMIN");
-  const inquiryId = str(formData, "inquiryId");
-  if (!inquiryId) return;
+  if (!inquiryId) return { ok: false, error: "Inquiry ID is required." };
 
   const inquiry = await db.clinicInquiry.findUnique({ where: { id: inquiryId } });
-  if (!inquiry) return;
+  if (!inquiry) return { ok: false, error: "Partnership request not found." };
 
   const clinic = await db.clinic.create({
     data: {
       name: inquiry.clinicName,
-      address: str(formData, "address") || inquiry.city,
+      address: addressInput?.trim() || inquiry.city,
       city: inquiry.city,
       phone: inquiry.phone || null,
       openTime: "09:00",
@@ -444,4 +450,88 @@ export async function approvePartnershipCreateClinicAction(formData: FormData): 
 
   await logAudit(actor.id, "APPROVE_PARTNERSHIP_CLINIC", "Clinic", clinic.id);
   revalidateAll();
+  return { ok: true, clinicId: clinic.id, message: `Approved and added "${clinic.name}".` };
+}
+
+async function deleteDoctorCascade(doctorId: string) {
+  await db.appointment.deleteMany({ where: { doctorId } });
+  await db.doctorSchedule.deleteMany({ where: { doctorId } });
+  await db.doctorRemovalRequest.updateMany({
+    where: { doctorId, status: "PENDING" },
+    data: { status: "APPROVED" },
+  });
+  await db.doctor.delete({ where: { id: doctorId } });
+}
+
+export async function deleteDoctorAction(doctorId: string): Promise<AdminActionState> {
+  const actor = await requireRole("SUPER_ADMIN");
+  if (!doctorId) return { ok: false, error: "Doctor ID is required." };
+
+  const existing = await db.doctor.findUnique({ where: { id: doctorId }, select: { id: true, name: true } });
+  if (!existing) return { ok: false, error: "Doctor was already removed." };
+
+  await deleteDoctorCascade(doctorId);
+  await logAudit(actor.id, "DELETE_DOCTOR", "Doctor", doctorId);
+  revalidateAll();
+  revalidatePath(`/doctors/${doctorId}`);
+  return { ok: true, message: `Removed ${existing.name}.` };
+}
+
+export async function deleteClinicAction(clinicId: string): Promise<AdminActionState> {
+  const actor = await requireRole("SUPER_ADMIN");
+  if (!clinicId) return { ok: false, error: "Clinic ID is required." };
+
+  const clinic = await db.clinic.findUnique({ where: { id: clinicId }, select: { id: true, name: true } });
+  if (!clinic) return { ok: false, error: "Clinic was already removed." };
+
+  const docs = await db.doctor.findMany({ where: { clinicId }, select: { id: true } });
+  for (const d of docs) {
+    await db.appointment.deleteMany({ where: { doctorId: d.id } });
+    await db.doctorSchedule.deleteMany({ where: { doctorId: d.id } });
+  }
+  await db.doctor.deleteMany({ where: { clinicId } });
+  await db.user.updateMany({ where: { clinicId }, data: { clinicId: null } });
+  await db.doctorRemovalRequest.updateMany({
+    where: { clinicId, status: "PENDING" },
+    data: { status: "DISMISSED" },
+  });
+  await db.clinic.delete({ where: { id: clinicId } });
+
+  await logAudit(actor.id, "DELETE_CLINIC", "Clinic", clinicId);
+  revalidateAll();
+  revalidatePath(`/clinics/${clinicId}`);
+  return { ok: true, message: `Removed clinic "${clinic.name}".` };
+}
+
+export async function handleDoctorRemovalRequestAction(
+  requestId: string,
+  decision: "APPROVE" | "DISMISS",
+): Promise<AdminActionState> {
+  const actor = await requireRole("SUPER_ADMIN");
+  if (!requestId) return { ok: false, error: "Request ID is required." };
+
+  const req = await db.doctorRemovalRequest.findUnique({ where: { id: requestId } });
+  if (!req) return { ok: false, error: "Removal request not found." };
+
+  if (decision === "APPROVE") {
+    const doc = await db.doctor.findUnique({ where: { id: req.doctorId }, select: { id: true } });
+    if (doc) {
+      await deleteDoctorCascade(doc.id);
+    }
+    await db.doctorRemovalRequest.update({
+      where: { id: req.id },
+      data: { status: "APPROVED" },
+    });
+    await logAudit(actor.id, "APPROVE_DOCTOR_REMOVAL", "Doctor", req.doctorId);
+    revalidateAll();
+    return { ok: true, message: `Removed ${req.doctorName} from ${req.clinicName}.` };
+  }
+
+  await db.doctorRemovalRequest.update({
+    where: { id: req.id },
+    data: { status: "DISMISSED" },
+  });
+  await logAudit(actor.id, "DISMISS_DOCTOR_REMOVAL", "DoctorRemovalRequest", req.id);
+  revalidateAll();
+  return { ok: true, message: `Dismissed removal request for ${req.doctorName}.` };
 }
