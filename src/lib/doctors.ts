@@ -18,7 +18,7 @@ export type DoctorFilters = z.infer<typeof doctorFilterSchema>;
 // "dermatologist dhaka" works.
 // NOTE: SQLite's "contains" ignores upper/lower case. When we move to Postgres
 // we will add  mode: "insensitive"  to each contains.
-export async function searchDoctors(filters: DoctorFilters) {
+export async function searchDoctors(filters: DoctorFilters, limit = 30) {
   const words = (filters.q ?? "")
     .toLowerCase()
     .split(/\s+/)
@@ -50,7 +50,7 @@ export async function searchDoctors(filters: DoctorFilters) {
       },
     },
     orderBy: { name: "asc" },
-    take: 30,
+    take: limit,
   });
 }
 

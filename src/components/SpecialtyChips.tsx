@@ -1,9 +1,18 @@
+"use client";
+
 import Link from "next/link";
 
-type Props = { specialties: string[]; active?: string; q?: string; city?: string };
+type Props = {
+  specialties: string[];
+  active?: string;
+  q?: string;
+  city?: string;
+  onSelect?: (specialty?: string) => void;
+};
 
-// Clickable specialty filters. Each link keeps the other filters (q, city).
-export default function SpecialtyChips({ specialties, active, q, city }: Props) {
+// Clickable specialty filters. Each chip keeps the other filters (q, city)
+// and supports instant in-browser filtering when onSelect is provided.
+export default function SpecialtyChips({ specialties, active, q, city, onSelect }: Props) {
   function hrefFor(specialty?: string) {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
@@ -22,11 +31,30 @@ export default function SpecialtyChips({ specialties, active, q, city }: Props) 
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-      <Link href={hrefFor()} className={chip(!active)}>
+      <Link
+        href={hrefFor()}
+        onClick={(e) => {
+          if (onSelect && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            onSelect(undefined);
+          }
+        }}
+        className={chip(!active)}
+      >
         All specialties
       </Link>
       {specialties.map((name) => (
-        <Link key={name} href={hrefFor(name)} className={chip(active === name)}>
+        <Link
+          key={name}
+          href={hrefFor(name)}
+          onClick={(e) => {
+            if (onSelect && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              onSelect(name);
+            }
+          }}
+          className={chip(active === name)}
+        >
           {name}
         </Link>
       ))}

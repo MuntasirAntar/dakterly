@@ -97,11 +97,11 @@ export default function PageTransitionLoader() {
       startNavigation();
     }
 
-    document.addEventListener("click", onDocumentClick, true);
-    document.addEventListener("submit", onDocumentSubmit, true);
+    document.addEventListener("click", onDocumentClick, false);
+    document.addEventListener("submit", onDocumentSubmit, false);
     return () => {
-      document.removeEventListener("click", onDocumentClick, true);
-      document.removeEventListener("submit", onDocumentSubmit, true);
+      document.removeEventListener("click", onDocumentClick, false);
+      document.removeEventListener("submit", onDocumentSubmit, false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

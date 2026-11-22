@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { ArrowRight, Clock, MapPin } from "lucide-react";
 import { formatFee, summarizeSchedule } from "@/lib/format";
-import type { searchDoctors } from "@/lib/doctors";
 import DoctorAvatar from "@/components/DoctorAvatar";
 
-// The card's data type comes straight from the search query, so they never disagree.
-type DoctorItem = Awaited<ReturnType<typeof searchDoctors>>[number];
+export type DoctorCardItem = {
+  id: string;
+  name: string;
+  qualifications: string | null;
+  photoUrl: string | null;
+  consultationFee: number;
+  specialty: { name: string };
+  clinic: { id: string; name: string; city: string; address: string };
+  schedules: Array<{ weekday: number; startTime: string; endTime: string }>;
+};
 
-export default function DoctorCard({ doctor }: { doctor: DoctorItem }) {
+export default function DoctorCard({ doctor }: { doctor: DoctorCardItem }) {
   const schedule = summarizeSchedule(doctor.schedules);
 
   return (

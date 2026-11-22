@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { cancelBooking, createBooking } from "@/lib/booking";
@@ -20,6 +21,9 @@ export async function bookAppointment(formData: FormData) {
   if (!result.ok) {
     redirect(`/doctors/${encodeURIComponent(doctorId)}/book?date=${encodeURIComponent(date)}&error=${result.error}`);
   }
+  revalidatePath("/appointments");
+  revalidatePath(`/doctors/${doctorId}/book`);
+  revalidatePath("/admin");
   redirect(`/appointments/${result.id}?booked=1`);
 }
 
@@ -29,6 +33,9 @@ export async function cancelAppointment(formData: FormData) {
 
   const result = await cancelBooking({ patientId: user.id, appointmentId });
 
+  revalidatePath("/appointments");
+  revalidatePath(`/appointments/${appointmentId}`);
+  revalidatePath("/admin");
   const page = `/appointments/${encodeURIComponent(appointmentId)}`;
   redirect(result.ok ? `${page}?cancelled=1` : `${page}?error=${result.error}`);
 }

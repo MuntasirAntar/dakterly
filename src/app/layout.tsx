@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PageTransitionLoader from "@/components/PageTransitionLoader";
+import BrowserCacheManager from "@/components/BrowserCacheManager";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col overflow-x-hidden">
         <Suspense fallback={null}>
           <PageTransitionLoader />
+          <BrowserCacheManager />
         </Suspense>
         <Suspense fallback={<div className="h-[61px] border-b border-slate-200 bg-white" />}>
           <Navbar />

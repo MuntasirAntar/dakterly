@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -68,6 +69,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
   });
 
   await createSession(user.id);
+  revalidatePath("/", "layout");
   redirect(safeNextPath(formData.get("next")) ?? "/");
 }
 
@@ -88,10 +90,12 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   }
 
   await createSession(user.id);
+  revalidatePath("/", "layout");
   redirect(safeNextPath(formData.get("next")) ?? homePathFor(user.role));
 }
 
 export async function logout() {
   await deleteSession();
+  revalidatePath("/", "layout");
   redirect("/login");
 }
