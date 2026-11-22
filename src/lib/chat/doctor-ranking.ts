@@ -19,18 +19,23 @@ export async function findDoctorsForChat(input: {
   specialty?: string;
   city?: string;
   area?: string;
+  specialties?: string[];
 }): Promise<{
   specialtyUsed: string;
   doctors: ChatDoctorResult[];
   fallbackFromOtherCities: boolean;
   requestedCity: string | null;
 }> {
-  const specialtiesRows = await db.specialty.findMany({
-    where: { doctors: { some: { isActive: true, clinic: { isActive: true } } } },
-    orderBy: { name: "asc" },
-    select: { name: true },
-  });
-  const availableSpecialties = specialtiesRows.map((s) => s.name);
+  const availableSpecialties =
+    input.specialties && input.specialties.length > 0
+      ? input.specialties
+      : (
+          await db.specialty.findMany({
+            where: { doctors: { some: { isActive: true, clinic: { isActive: true } } } },
+            orderBy: { name: "asc" },
+            select: { name: true },
+          })
+        ).map((s) => s.name);
   const specialtyUsed = resolveSpecialtyName(input.specialty, availableSpecialties);
 
   let candidates = await searchDoctors({ specialty: specialtyUsed }, 50);

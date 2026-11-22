@@ -7,11 +7,10 @@ import { first, type SearchParams } from "@/lib/params";
 import { CANCEL_CUTOFF_MINUTES, canCancel } from "@/lib/slots";
 import { getQueueSnapshot } from "@/lib/queue-data";
 import { formatDate, nowInClinicTz } from "@/lib/time";
-import { cancelAppointment } from "@/app/actions/appointments";
 import StatusBadge from "@/components/StatusBadge";
 import QueueTracker from "@/components/QueueTracker";
 import BackButton from "@/components/BackButton";
-import SubmitButton from "@/components/SubmitButton";
+import CancelAppointmentButton from "@/components/CancelAppointmentButton";
 
 export default async function AppointmentPage({
   params,
@@ -110,16 +109,7 @@ export default async function AppointmentPage({
       {appointment.status === "BOOKED" && (
         <section className="mt-5">
           {cancellable ? (
-            <form action={cancelAppointment}>
-              <input type="hidden" name="appointmentId" value={appointment.id} />
-              <SubmitButton
-                pendingLabel="Cancelling..."
-                confirmMessage="Cancel this appointment? Your time slot will be given to someone else."
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Cancel appointment
-              </SubmitButton>
-            </form>
+            <CancelAppointmentButton appointmentId={appointment.id} />
           ) : (
             <p className="text-sm text-gray-600">
               Online cancelling closes {CANCEL_CUTOFF_MINUTES / 60} hours before the appointment. Please call the clinic if you cannot come.

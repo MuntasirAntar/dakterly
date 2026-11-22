@@ -2,7 +2,11 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requirePatient } from "@/lib/auth";
-import { BOOKING_MESSAGES, getAvailabilityByDate } from "@/lib/booking";
+import {
+  BOOKING_MESSAGES,
+  getAvailabilityByDate,
+  getPatientDoctorAppointmentsInWindow,
+} from "@/lib/booking";
 import { getDoctor } from "@/lib/doctors";
 import { formatFee, formatTime } from "@/lib/format";
 import { first, type SearchParams } from "@/lib/params";
@@ -32,19 +36,30 @@ export default async function BookPage({
   if (dateParam) query.set("date", dateParam);
   if (slotParam) query.set("slot", slotParam);
   const here = `/doctors/${encodeURIComponent(id)}/book${query.toString() ? `?${query}` : ""}`;
-  await requirePatient(here);
+  const user = await requirePatient(here);
 
   const doctor = await getDoctor(id);
   if (!doctor) notFound();
 
   const now = nowInClinicTz();
   const days = await getAvailabilityByDate(doctor.id, doctor.schedules, now);
+  const existingAppointments = await getPatientDoctorAppointmentsInWindow(
+    user.id,
+    doctor.id,
+    days.map((d) => d.date),
+  );
+  const existingByDate = new Map(existingAppointments.map((a) => [a.date, a]));
 
   // Which day is selected? The one in the URL if it is a real, bookable day,
-  // otherwise the first day with a free slot.
+  // otherwise the first day with a free slot where the patient has no visit yet.
   const requested = dateParam && isValidDateString(dateParam) ? days.find((d) => d.date === dateParam) : undefined;
-  const selected = requested && requested.slots.length > 0 ? requested : days.find((d) => d.slots.length > 0);
+  const selected =
+    requested && requested.slots.length > 0
+      ? requested
+      : (days.find((d) => d.slots.length > 0 && !existingByDate.has(d.date)) ??
+          days.find((d) => d.slots.length > 0));
   const slot = selected && slotParam && selected.slots.includes(slotParam) ? slotParam : undefined;
+  const existingOnSelected = selected ? existingByDate.get(selected.date) : undefined;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
@@ -62,7 +77,7 @@ export default async function BookPage({
         <p className="font-semibold text-gray-900 tabular-nums">{formatFee(doctor.consultationFee)}</p>
       </section>
 
-      {errorCode && BOOKING_MESSAGES[errorCode] && (
+      {errorCode && errorCode !== "duplicate_doctor_day" && BOOKING_MESSAGES[errorCode] && (
         <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {BOOKING_MESSAGES[errorCode]}
         </p>
@@ -79,6 +94,7 @@ export default async function BookPage({
             {days.map((day) => {
               const chip = dateChip(day.date);
               const isSelected = day.date === selected.date;
+              const hasExisting = existingByDate.has(day.date);
               const base = "rounded-xl border px-2 py-2.5 text-center text-sm transition-colors";
               const inner = (
                 <>
@@ -86,7 +102,13 @@ export default async function BookPage({
                   <span className="block text-lg font-bold leading-tight">{chip.day}</span>
                   <span className="block text-xs">{chip.month}</span>
                   <span className="mt-1 block text-[11px]">
-                    {day.total === 0 ? "Off" : day.slots.length === 0 ? "Full" : `${day.slots.length} left`}
+                    {day.total === 0
+                      ? "Off"
+                      : day.slots.length === 0
+                        ? "Full"
+                        : hasExisting
+                          ? "Existing"
+                          : `${day.slots.length} left`}
                   </span>
                 </>
               );
@@ -100,7 +122,11 @@ export default async function BookPage({
                   href={`/doctors/${doctor.id}/book?date=${day.date}`}
                   aria-current={isSelected ? "date" : undefined}
                   className={`${base} ${
-                    isSelected ? "border-teal-700 bg-teal-700 text-white" : "border-gray-300 bg-white text-gray-800 hover:border-teal-600"
+                    isSelected
+                      ? "border-teal-700 bg-teal-700 text-white"
+                      : hasExisting
+                        ? "border-amber-300 bg-amber-50/70 text-amber-900 hover:border-amber-500"
+                        : "border-gray-300 bg-white text-gray-800 hover:border-teal-600"
                   }`}
                 >
                   {inner}
@@ -109,40 +135,75 @@ export default async function BookPage({
             })}
           </div>
 
-          <h2 className="mt-8 text-lg font-semibold text-gray-900">2. Choose a time on {formatDate(selected.date)}</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {selected.slots.map((time) => (
-              <Link
-                key={time}
-                href={`/doctors/${doctor.id}/book?date=${selected.date}&slot=${time}`}
-                aria-current={time === slot ? "true" : undefined}
-                className={`min-h-[42px] flex items-center justify-center rounded-lg border px-2.5 py-2 text-center text-sm font-medium transition-colors ${
-                  time === slot ? "border-teal-700 bg-teal-700 text-white" : "border-gray-300 bg-white text-gray-800 hover:border-teal-600"
-                }`}
-              >
-                {formatTime(time)}
-              </Link>
-            ))}
-          </div>
-
-          {slot && (
-            <section className="mt-8 rounded-2xl border-2 border-teal-700 bg-white p-5">
-              <h2 className="text-lg font-semibold text-gray-900">3. Confirm</h2>
-              <p className="mt-2 text-gray-700">
-                {doctor.name} on <strong>{formatDate(selected.date)}</strong> at <strong>{formatTime(slot)}</strong>
+          {existingOnSelected ? (
+            <section
+              role="status"
+              className="mt-8 rounded-2xl border border-amber-300 bg-amber-50/80 p-5 text-amber-950"
+            >
+              <h2 className="text-base font-semibold">
+                You already have an appointment on {formatDate(selected.date)}
+              </h2>
+              <p className="mt-1.5 text-sm text-amber-900">
+                Token #{existingOnSelected.tokenNumber} at {formatTime(existingOnSelected.slotTime)} with {doctor.name} is{" "}
+                {existingOnSelected.status.toLowerCase().replace("_", " ")}. You can only hold one visit per doctor on the same day—please pick another day above or view your existing appointment.
               </p>
-              <p className="mt-1 text-sm text-gray-600">
-                {doctor.clinic.name}, {doctor.clinic.address}. You pay the fee ({formatFee(doctor.consultationFee)}) at the clinic.
-              </p>
-              <form action={bookAppointment} className="mt-4">
-                <input type="hidden" name="doctorId" value={doctor.id} />
-                <input type="hidden" name="date" value={selected.date} />
-                <input type="hidden" name="slotTime" value={slot} />
-                <SubmitButton pendingLabel="Booking..." className="bg-teal-700 hover:bg-teal-800">
-                  Confirm booking
-                </SubmitButton>
-              </form>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={`/appointments/${existingOnSelected.id}`}
+                  className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-600"
+                >
+                  View existing appointment
+                </Link>
+              </div>
             </section>
+          ) : (
+            <>
+              {errorCode === "duplicate_doctor_day" && (
+                <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {BOOKING_MESSAGES.duplicate_doctor_day}
+                </p>
+              )}
+
+              <h2 className="mt-8 text-lg font-semibold text-gray-900">
+                2. Choose a time on {formatDate(selected.date)}
+              </h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                {selected.slots.map((time) => (
+                  <Link
+                    key={time}
+                    href={`/doctors/${doctor.id}/book?date=${selected.date}&slot=${time}`}
+                    aria-current={time === slot ? "true" : undefined}
+                    className={`min-h-[42px] flex items-center justify-center rounded-lg border px-2.5 py-2 text-center text-sm font-medium transition-colors ${
+                      time === slot
+                        ? "border-teal-700 bg-teal-700 text-white"
+                        : "border-gray-300 bg-white text-gray-800 hover:border-teal-600"
+                    }`}
+                  >
+                    {formatTime(time)}
+                  </Link>
+                ))}
+              </div>
+
+              {slot && (
+                <section className="mt-8 rounded-2xl border-2 border-teal-700 bg-white p-5">
+                  <h2 className="text-lg font-semibold text-gray-900">3. Confirm</h2>
+                  <p className="mt-2 text-gray-700">
+                    {doctor.name} on <strong>{formatDate(selected.date)}</strong> at <strong>{formatTime(slot)}</strong>
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {doctor.clinic.name}, {doctor.clinic.address}. You pay the fee ({formatFee(doctor.consultationFee)}) at the clinic.
+                  </p>
+                  <form action={bookAppointment} className="mt-4">
+                    <input type="hidden" name="doctorId" value={doctor.id} />
+                    <input type="hidden" name="date" value={selected.date} />
+                    <input type="hidden" name="slotTime" value={slot} />
+                    <SubmitButton pendingLabel="Booking..." className="bg-teal-700 hover:bg-teal-800">
+                      Confirm booking
+                    </SubmitButton>
+                  </form>
+                </section>
+              )}
+            </>
           )}
         </>
       )}

@@ -10,8 +10,39 @@ import type { ChatDoctorResult, ChatMessageInput } from "./types";
 
 const DEFAULT_MODEL = "gemini-4-hydrogen";
 const FALLBACK_MODELS = ["gemini-3.8-flash", "gemini-3.1-flash-lite"] as const;
-const MAX_OUTPUT_TOKENS = 2048;
+const MAX_OUTPUT_TOKENS = 1024;
 const MAX_TOOL_ROUNDS = 4;
+const MODEL_COOLDOWN_MS_TRANSIENT = 5 * 60 * 1000;
+const MODEL_COOLDOWN_MS_NOT_FOUND = 30 * 60 * 1000;
+
+const modelCooldownUntil = new Map<string, number>();
+
+function cooldownKey(apiKey: string, model: string): string {
+  const fingerprint = `${apiKey.length}:${apiKey.slice(-6)}`;
+  return `${fingerprint}|${model}`;
+}
+
+export function clearModelCooldownsForTest(): void {
+  modelCooldownUntil.clear();
+}
+
+export function markModelUnavailable(model: string, reason: "not_found" | "transient", apiKey = resolveGeminiApiKey()): void {
+  if (!apiKey) return;
+  const ttl = reason === "not_found" ? MODEL_COOLDOWN_MS_NOT_FOUND : MODEL_COOLDOWN_MS_TRANSIENT;
+  modelCooldownUntil.set(cooldownKey(apiKey, model), Date.now() + ttl);
+}
+
+function isModelCoolingDown(model: string, apiKey: string, now = Date.now()): boolean {
+  if (!apiKey) return false;
+  const key = cooldownKey(apiKey, model);
+  const until = modelCooldownUntil.get(key);
+  if (!until) return false;
+  if (now >= until) {
+    modelCooldownUntil.delete(key);
+    return false;
+  }
+  return true;
+}
 
 const findDoctorsDeclaration: FunctionDeclaration = {
   name: "find_doctors",
@@ -107,7 +138,10 @@ function isRetiredModel(model: string): boolean {
   return /^(?:gemini-1\.|gemini-2\.|gemini-pro$)/i.test(model);
 }
 
-export function getCandidateModels(configuredOverride = process.env.GEMINI_MODEL): string[] {
+export function getCandidateModels(
+  configuredOverride = process.env.GEMINI_MODEL,
+  apiKey = resolveGeminiApiKey(),
+): string[] {
   const configured = configuredOverride?.trim().replace(/^models\//i, "");
   const isValidCustom =
     Boolean(configured) &&
@@ -119,7 +153,20 @@ export function getCandidateModels(configuredOverride = process.env.GEMINI_MODEL
     ? [configured!, DEFAULT_MODEL, ...FALLBACK_MODELS]
     : [DEFAULT_MODEL, ...FALLBACK_MODELS];
 
-  return Array.from(new Set(ordered));
+  const unique = Array.from(new Set(ordered));
+  if (!apiKey) return unique;
+
+  const now = Date.now();
+  const healthy: string[] = [];
+  const coolingDown: string[] = [];
+  for (const model of unique) {
+    if (isModelCoolingDown(model, apiKey, now)) {
+      coolingDown.push(model);
+    } else {
+      healthy.push(model);
+    }
+  }
+  return [...healthy, ...coolingDown];
 }
 
 function supportsThinkingLevel(model: string): boolean {
@@ -143,6 +190,13 @@ function isTransientError(err: unknown): boolean {
     status === 504 ||
     /ECONNRESET|ETIMEDOUT|UNAVAILABLE|timeout|aborted|fetch failed|high demand/i.test(message)
   );
+}
+
+function isRateLimitError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const status = "status" in err ? (err as { status?: unknown }).status : undefined;
+  const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+  return status === 429 || /RESOURCE_EXHAUSTED|429/i.test(message);
 }
 
 async function generateWithRetry(
@@ -272,19 +326,32 @@ async function executeChatWithModel(
 }
 
 export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunSymptomChatResult> {
+  const apiKey = resolveGeminiApiKey();
   const ai = getGeminiClient();
-  const candidates = getCandidateModels();
+  const candidates = getCandidateModels(process.env.GEMINI_MODEL, apiKey);
 
   let lastError: unknown;
   for (let i = 0; i < candidates.length; i++) {
     const model = candidates[i];
     const hasMoreCandidates = i < candidates.length - 1;
     try {
-      return await executeChatWithModel(ai, model, params, !hasMoreCandidates);
+      const result = await executeChatWithModel(ai, model, params, !hasMoreCandidates);
+      if (apiKey) {
+        modelCooldownUntil.delete(cooldownKey(apiKey, model));
+      }
+      return result;
     } catch (err) {
       lastError = err;
-      if (hasMoreCandidates && (isModelNotFoundError(err) || isTransientError(err))) {
-        console.warn(`[/api/chat] Model "${model}" unavailable, trying "${candidates[i + 1]}".`);
+      const notFound = isModelNotFoundError(err);
+      const transient = isTransientError(err);
+      const rateLimited = isRateLimitError(err);
+      if (notFound || transient || rateLimited) {
+        markModelUnavailable(model, notFound ? "not_found" : "transient", apiKey);
+      }
+      if (hasMoreCandidates && (notFound || transient || rateLimited)) {
+        console.warn(
+          `[/api/chat] Model "${model}" ${rateLimited ? "rate-limited (429)" : "unavailable"}, trying "${candidates[i + 1]}".`,
+        );
         continue;
       }
       throw err;

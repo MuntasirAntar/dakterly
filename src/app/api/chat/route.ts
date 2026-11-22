@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     const result = await runSymptomChat({
       systemInstruction,
       messages,
-      onFindDoctors: findDoctorsForChat,
+      onFindDoctors: (args) => findDoctorsForChat({ ...args, specialties }),
     });
 
     const replyText =

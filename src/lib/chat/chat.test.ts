@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { detectEmergencyRedFlags } from "./emergency";
 import { chatRequestSchema, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_MESSAGES } from "./schema";
 import { rankDoctorsByLocation, resolveSpecialtyName, type RankableDoctor } from "./ranking";
-import { getCandidateModels, resolveGeminiApiKey, sanitizeGeminiApiKey } from "./gemini";
+import {
+  clearModelCooldownsForTest,
+  getCandidateModels,
+  markModelUnavailable,
+  resolveGeminiApiKey,
+  sanitizeGeminiApiKey,
+} from "./gemini";
 
 describe("detectEmergencyRedFlags", () => {
   it("flags English emergency red flags", () => {
@@ -236,10 +242,27 @@ describe("Gemini API key resolution", () => {
       "gemini-3.8-flash",
       "gemini-3.1-flash-lite",
     ]);
-    expect(getCandidateModels("models/gemini-3.8-flash")).toEqual([
+    expect(getCandidateModels("models/gemini-3.8-flash", "")).toEqual([
       "gemini-3.8-flash",
       "gemini-4-hydrogen",
       "gemini-3.1-flash-lite",
     ]);
+  });
+
+  it("deprioritizes models that recently returned 404 or 503 for faster follow-up replies", () => {
+    clearModelCooldownsForTest();
+    try {
+      const testKey = "AIzaTestCooldown123456";
+      markModelUnavailable("gemini-4-hydrogen", "transient", testKey);
+      markModelUnavailable("gemini-3.8-flash", "not_found", testKey);
+
+      expect(getCandidateModels(undefined, testKey)).toEqual([
+        "gemini-3.1-flash-lite",
+        "gemini-4-hydrogen",
+        "gemini-3.8-flash",
+      ]);
+    } finally {
+      clearModelCooldownsForTest();
+    }
   });
 });

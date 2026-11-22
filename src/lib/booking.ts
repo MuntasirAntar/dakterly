@@ -182,6 +182,23 @@ export async function getMyAppointment(patientId: string, id: string) {
   });
 }
 
+export async function getPatientDoctorAppointmentsInWindow(
+  patientId: string,
+  doctorId: string,
+  dates: string[],
+) {
+  if (dates.length === 0) return [];
+  return db.appointment.findMany({
+    where: {
+      patientId,
+      doctorId,
+      status: { not: "CANCELLED" },
+      date: { gte: dates[0], lte: dates[dates.length - 1] },
+    },
+    select: { id: true, date: true, slotTime: true, tokenNumber: true, status: true },
+  });
+}
+
 export function isUpcoming(status: string, date: string, today: string) {
   return (status === "BOOKED" || status === "CHECKED_IN" || status === "IN_PROGRESS") && date >= today;
 }
