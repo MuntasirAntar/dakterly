@@ -6,10 +6,14 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./sqlite-export.json"],
   },
+  images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 31536000,
+  },
   allowedDevOrigins: ["**.run.app", "**.devtunnels.ms", "localhost:3000", "127.0.0.1:3000"],
   experimental: {
     staleTimes: {
-      dynamic: 120,
+      dynamic: 300,
       static: 300,
     },
     serverActions: {
@@ -18,6 +22,7 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
+    const isProd = process.env.NODE_ENV === "production";
     return [
       {
         source: "/sw.js",
@@ -26,12 +31,29 @@ const nextConfig: NextConfig = {
           { key: "Service-Worker-Allowed", value: "/" },
         ],
       },
-      {
-        source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
+      ...(isProd
+        ? [
+            {
+              source: "/_next/static/:path*",
+              headers: [
+                { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+              ],
+            },
+          ]
+        : [
+            {
+              source: "/_next/static/chunks/:path*",
+              headers: [
+                { key: "Cache-Control", value: "no-cache, must-revalidate" },
+              ],
+            },
+            {
+              source: "/_next/static/media/:path*",
+              headers: [
+                { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+              ],
+            },
+          ]),
       {
         source: "/assets/:path*",
         headers: [

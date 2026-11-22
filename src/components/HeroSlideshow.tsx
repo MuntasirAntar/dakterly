@@ -72,7 +72,8 @@ export default function HeroSlideshow({ cities, popularSpecialties }: Props) {
               src={current.src}
               alt={current.alt}
               fill
-              priority={index === 0}
+              loading="eager"
+              fetchPriority={index === 0 ? "high" : "auto"}
               sizes="100vw"
               referrerPolicy="no-referrer"
               className="object-cover object-center"

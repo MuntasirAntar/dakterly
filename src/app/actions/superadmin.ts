@@ -33,7 +33,8 @@ async function logAudit(userId: string, action: string, entity: string, entityId
 function revalidateAll() {
   revalidatePath("/superadmin");
   revalidatePath("/");
-  revalidatePath("/doctors");
+  revalidatePath("/doctors", "layout");
+  revalidatePath("/clinics", "layout");
   revalidatePath("/admin");
 }
 

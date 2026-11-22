@@ -14,16 +14,20 @@ export default function PageTransitionLoader() {
   const currentRouteRef = useRef(routeKey);
 
   const [status, setStatus] = useState<"idle" | "loading" | "completing">("idle");
+  const [showBar, setShowBar] = useState(false);
   const [showOverlayPill, setShowOverlayPill] = useState(false);
 
+  const barTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearTimers() {
+    if (barTimerRef.current) clearTimeout(barTimerRef.current);
     if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    barTimerRef.current = null;
     pillTimerRef.current = null;
     safetyTimerRef.current = null;
     finishTimerRef.current = null;
@@ -32,14 +36,20 @@ export default function PageTransitionLoader() {
   function startNavigation() {
     clearTimers();
     setStatus("loading");
+    setShowBar(false);
     setShowOverlayPill(false);
+
+    barTimerRef.current = setTimeout(() => {
+      setShowBar(true);
+    }, 90);
 
     pillTimerRef.current = setTimeout(() => {
       setShowOverlayPill(true);
-    }, 150);
+    }, 280);
 
     safetyTimerRef.current = setTimeout(() => {
       setStatus("idle");
+      setShowBar(false);
       setShowOverlayPill(false);
     }, 10000);
   }
@@ -114,22 +124,26 @@ export default function PageTransitionLoader() {
     clearTimers();
     const startFinish = setTimeout(() => {
       setShowOverlayPill(false);
-      setStatus((prev) => (prev === "idle" ? "idle" : "completing"));
+      setStatus((prev) => {
+        if (prev === "idle") return "idle";
+        return showBar ? "completing" : "idle";
+      });
       finishTimerRef.current = setTimeout(() => {
         setStatus("idle");
-      }, 240);
+        setShowBar(false);
+      }, 220);
     }, 0);
 
     return () => {
       clearTimeout(startFinish);
     };
-  }, [routeKey]);
+  }, [routeKey, showBar]);
 
   useEffect(() => {
     return () => clearTimers();
   }, []);
 
-  const isVisible = status !== "idle";
+  const isVisible = status !== "idle" && showBar;
 
   return (
     <AnimatePresence>
@@ -142,7 +156,7 @@ export default function PageTransitionLoader() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: 0.16 }}
             className="pointer-events-none fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-teal-950/10 print:hidden"
           >
             <motion.div
@@ -155,13 +169,13 @@ export default function PageTransitionLoader() {
                 prefersReducedMotion
                   ? { duration: 0.1 }
                   : status === "completing"
-                    ? { duration: 0.2, ease: "easeOut" }
+                    ? { duration: 0.18, ease: "easeOut" }
                     : { duration: 3.5, ease: [0.16, 1, 0.3, 1] }
               }
             />
           </motion.div>
 
-          {/* Subtle floating indicator if transition takes > 150ms */}
+          {/* Subtle floating indicator if transition takes > 280ms */}
           {showOverlayPill && status === "loading" && (
             <motion.div
               key="route-loading-pill"

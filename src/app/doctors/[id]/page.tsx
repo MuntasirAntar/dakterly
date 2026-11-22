@@ -1,9 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { getDoctor } from "@/lib/doctors";
 import { WEEKDAY_LONG, formatFee, formatTime } from "@/lib/format";
 import DoctorAvatar from "@/components/DoctorAvatar";
 import BackButton from "@/components/BackButton";
+
+export const revalidate = 60;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const doctors = await db.doctor.findMany({
+      where: { isActive: true, clinic: { isActive: true } },
+      select: { id: true },
+      take: 100,
+    });
+    return doctors.map((d) => ({ id: d.id }));
+  } catch {
+    return [];
+  }
+}
 
 export default async function DoctorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

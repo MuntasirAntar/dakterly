@@ -20,7 +20,8 @@ export default function AuthShell({ image, imageAlt, eyebrow, heading, descripti
           src={image}
           alt={imageAlt}
           fill
-          priority
+          loading="eager"
+          fetchPriority="high"
           sizes="100vw"
           referrerPolicy="no-referrer"
           className="object-cover object-center"

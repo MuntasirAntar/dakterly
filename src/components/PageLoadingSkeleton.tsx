@@ -1,9 +1,8 @@
 import { Stethoscope } from "lucide-react";
 
-export default function Loading() {
+export default function PageLoadingSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6" aria-busy="true" aria-live="polite">
-      {/* Centered animated pulse indicator */}
       <div className="flex flex-col items-center justify-center py-8 text-center">
         <div className="relative flex h-14 w-14 items-center justify-center">
           <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/30" aria-hidden="true" />
@@ -14,7 +13,6 @@ export default function Loading() {
         <p className="mt-4 text-sm font-medium text-teal-800">Loading Dakterly...</p>
       </div>
 
-      {/* Subtle page skeleton */}
       <div className="mt-4 space-y-5">
         <div className="h-8 w-56 animate-pulse rounded-lg bg-slate-200/80" />
         <div className="grid gap-4 md:grid-cols-2">

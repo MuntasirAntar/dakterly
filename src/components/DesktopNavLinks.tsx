@@ -38,6 +38,7 @@ export default function DesktopNavLinks({ user, dashboardHref }: Props) {
     <>
       <Link
         href="/doctors"
+        prefetch={true}
         aria-current={isFindDoctors ? "page" : undefined}
         className={linkClass(isFindDoctors)}
       >
@@ -45,6 +46,7 @@ export default function DesktopNavLinks({ user, dashboardHref }: Props) {
       </Link>
       <Link
         href="/join-clinic"
+        prefetch={true}
         aria-current={isForClinics ? "page" : undefined}
         className={linkClass(isForClinics)}
       >

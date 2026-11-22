@@ -28,7 +28,7 @@ export default function DoctorCard({ doctor }: { doctor: DoctorCardItem }) {
               {doctor.qualifications ? ` · ${doctor.qualifications}` : ""}
             </p>
             <h3 className="mt-0.5 text-base font-bold text-slate-900 sm:truncate sm:text-lg">
-              <Link href={`/doctors/${doctor.id}`} className="transition-colors hover:text-teal-700">
+              <Link href={`/doctors/${doctor.id}`} prefetch={true} className="transition-colors hover:text-teal-700">
                 {doctor.name}
               </Link>
             </h3>
@@ -39,7 +39,7 @@ export default function DoctorCard({ doctor }: { doctor: DoctorCardItem }) {
           <p className="flex items-start gap-2">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" aria-hidden="true" />
             <span className="min-w-0">
-              <Link href={`/clinics/${doctor.clinic.id}`} className="font-medium text-slate-800 hover:text-teal-700">
+              <Link href={`/clinics/${doctor.clinic.id}`} prefetch={true} className="font-medium text-slate-800 hover:text-teal-700">
                 {doctor.clinic.name}
               </Link>{" "}
               · {doctor.clinic.city}
@@ -61,6 +61,7 @@ export default function DoctorCard({ doctor }: { doctor: DoctorCardItem }) {
         </div>
         <Link
           href={`/doctors/${doctor.id}`}
+          prefetch={true}
           className="group inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white whitespace-nowrap transition-all duration-200 hover:bg-emerald-600 hover:shadow-sm"
         >
           <span>View profile</span>

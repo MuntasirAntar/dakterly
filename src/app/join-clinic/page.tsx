@@ -38,7 +38,8 @@ export default function JoinClinicPage() {
             src={partnerPhoto}
             alt="Clinic director and receptionist coordinating schedules on a tablet"
             fill
-            priority
+            loading="eager"
+            fetchPriority="high"
             sizes="100vw"
             referrerPolicy="no-referrer"
             className="object-cover object-center"

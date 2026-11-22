@@ -1,7 +1,24 @@
 import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { getClinic, searchDoctors } from "@/lib/doctors";
 import DoctorCard from "@/components/DoctorCard";
 import BackButton from "@/components/BackButton";
+
+export const revalidate = 60;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const clinics = await db.clinic.findMany({
+      where: { isActive: true },
+      select: { id: true },
+      take: 50,
+    });
+    return clinics.map((c) => ({ id: c.id }));
+  } catch {
+    return [];
+  }
+}
 
 export default async function ClinicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

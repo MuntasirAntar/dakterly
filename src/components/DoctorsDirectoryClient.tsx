@@ -143,7 +143,8 @@ export default function DoctorsDirectoryClient({
             src={doctorsBackdrop}
             alt="Medical specialists collaborating in a modern clinic corridor"
             fill
-            priority
+            loading="eager"
+            fetchPriority="high"
             sizes="100vw"
             referrerPolicy="no-referrer"
             className="object-cover object-center"
