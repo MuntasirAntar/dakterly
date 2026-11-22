@@ -4,11 +4,14 @@ import {
   ThinkingLevel,
   Type,
   type Content,
+  type GenerateContentConfig,
 } from "@google/genai";
 import type { ChatDoctorResult, ChatMessageInput } from "./types";
 
 const DEFAULT_MODEL = "gemini-4-hydrogen";
+const FALLBACK_MODELS = ["gemini-3.8-flash", "gemini-3.1-flash-lite"] as const;
 const MAX_OUTPUT_TOKENS = 2048;
+const MAX_TOOL_ROUNDS = 4;
 
 const findDoctorsDeclaration: FunctionDeclaration = {
   name: "find_doctors",
@@ -66,14 +69,33 @@ export class MissingGeminiKeyError extends Error {
   }
 }
 
+export function sanitizeGeminiApiKey(raw?: string): string {
+  if (!raw) return "";
+  return raw
+    .trim()
+    .replace(/^(?:GOOGLE_)?GEMINI_API_KEY\s*=\s*/i, "")
+    .replace(/^["']+|["']+$/g, "")
+    .trim();
+}
+
+export function resolveGeminiApiKey(): string {
+  return (
+    sanitizeGeminiApiKey(process.env.GOOGLE_GEMINI_API_KEY) ||
+    sanitizeGeminiApiKey(process.env.GEMINI_API_KEY)
+  );
+}
+
+const REQUEST_TIMEOUT_MS = 10_000;
+
 function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = resolveGeminiApiKey();
   if (!apiKey) {
     throw new MissingGeminiKeyError();
   }
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
+      timeout: REQUEST_TIMEOUT_MS,
       headers: {
         "User-Agent": "aistudio-build",
       },
@@ -81,22 +103,77 @@ function getGeminiClient(): GoogleGenAI {
   });
 }
 
-function getModelName(): string {
-  const configured = process.env.GEMINI_MODEL?.trim();
-  if (
-    !configured ||
-    /^AIza/i.test(configured) ||
-    !/^(?:models\/)?gemini-[a-z0-9._-]+$/i.test(configured)
-  ) {
-    return DEFAULT_MODEL;
-  }
-  return configured.replace(/^models\//i, "");
+function isRetiredModel(model: string): boolean {
+  return /^(?:gemini-1\.|gemini-2\.|gemini-pro$)/i.test(model);
 }
 
-export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunSymptomChatResult> {
-  const ai = getGeminiClient();
-  const model = getModelName();
+export function getCandidateModels(configuredOverride = process.env.GEMINI_MODEL): string[] {
+  const configured = configuredOverride?.trim().replace(/^models\//i, "");
+  const isValidCustom =
+    Boolean(configured) &&
+    !/^AIza/i.test(configured!) &&
+    /^gemini-[a-z0-9._-]+$/i.test(configured!) &&
+    !isRetiredModel(configured!);
 
+  const ordered = isValidCustom
+    ? [configured!, DEFAULT_MODEL, ...FALLBACK_MODELS]
+    : [DEFAULT_MODEL, ...FALLBACK_MODELS];
+
+  return Array.from(new Set(ordered));
+}
+
+function supportsThinkingLevel(model: string): boolean {
+  return /^gemini-4(?:[.-]|$)/i.test(model);
+}
+
+function isModelNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const status = "status" in err ? (err as { status?: unknown }).status : undefined;
+  const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+  return status === 404 || /NOT_FOUND|not found for API version|is not supported for generateContent|no longer available/i.test(message);
+}
+
+function isTransientError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const status = "status" in err ? (err as { status?: unknown }).status : undefined;
+  const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+  return (
+    status === 500 ||
+    status === 503 ||
+    status === 504 ||
+    /ECONNRESET|ETIMEDOUT|UNAVAILABLE|timeout|aborted|fetch failed|high demand/i.test(message)
+  );
+}
+
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  model: string,
+  contents: Content[],
+  config: GenerateContentConfig,
+  maxAttempts: number,
+) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await ai.models.generateContent({ model, contents, config });
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts - 1 && isTransientError(err)) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+async function executeChatWithModel(
+  ai: GoogleGenAI,
+  model: string,
+  params: RunSymptomChatParams,
+  allowFirstRoundRetry: boolean,
+): Promise<RunSymptomChatResult> {
   const contents: Content[] = params.messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -105,23 +182,23 @@ export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunS
   let doctors: ChatDoctorResult[] = [];
   let fallbackFromOtherCities = false;
   let requestedCity: string | null = null;
+  const useThinking = supportsThinkingLevel(model);
 
-  for (let round = 0; round < 3; round++) {
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction: params.systemInstruction,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        tools: [{ functionDeclarations: [findDoctorsDeclaration] }],
-      },
-    });
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const allowTools = round < MAX_TOOL_ROUNDS - 1;
+    const config: GenerateContentConfig = {
+      systemInstruction: params.systemInstruction,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      ...(useThinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
+      ...(allowTools ? { tools: [{ functionDeclarations: [findDoctorsDeclaration] }] } : {}),
+    };
 
+    const maxAttempts = round === 0 && !allowFirstRoundRetry ? 1 : 2;
+    const response = await generateWithRetry(ai, model, contents, config, maxAttempts);
     const functionCalls = response.functionCalls;
     const modelContent = response.candidates?.[0]?.content;
 
-    if (!functionCalls || functionCalls.length === 0 || !modelContent) {
+    if (!allowTools || !functionCalls || functionCalls.length === 0 || !modelContent) {
       return {
         reply: (response.text ?? "").trim(),
         doctors,
@@ -148,7 +225,7 @@ export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunS
 
         functionResponseParts.push({
           functionResponse: {
-            id: call.id,
+            ...(call.id ? { id: call.id } : {}),
             name: "find_doctors",
             response: {
               specialtyUsed: outcome.specialtyUsed,
@@ -192,4 +269,27 @@ export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunS
     fallbackFromOtherCities,
     requestedCity,
   };
+}
+
+export async function runSymptomChat(params: RunSymptomChatParams): Promise<RunSymptomChatResult> {
+  const ai = getGeminiClient();
+  const candidates = getCandidateModels();
+
+  let lastError: unknown;
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i];
+    const hasMoreCandidates = i < candidates.length - 1;
+    try {
+      return await executeChatWithModel(ai, model, params, !hasMoreCandidates);
+    } catch (err) {
+      lastError = err;
+      if (hasMoreCandidates && (isModelNotFoundError(err) || isTransientError(err))) {
+        console.warn(`[/api/chat] Model "${model}" unavailable, trying "${candidates[i + 1]}".`);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
 }

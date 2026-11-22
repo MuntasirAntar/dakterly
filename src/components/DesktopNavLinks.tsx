@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { BotMessageSquare } from "lucide-react";
 
 type Props = {
   user: {
@@ -19,6 +20,7 @@ export default function DesktopNavLinks({ user, dashboardHref }: Props) {
 
   const isFindDoctors = pathname === "/doctors" || pathname.startsWith("/doctors/");
   const isForClinics = pathname === "/join-clinic" || pathname.startsWith("/join-clinic/");
+  const isAgent = pathname === "/agent" || pathname.startsWith("/agent/");
   const isAppointments = pathname === "/appointments" || pathname.startsWith("/appointments/");
   const isDashboard =
     dashboardHref !== null &&
@@ -30,8 +32,8 @@ export default function DesktopNavLinks({ user, dashboardHref }: Props) {
 
   function linkClass(active: boolean) {
     return active
-      ? "relative inline-flex items-center rounded-lg bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-800 ring-1 ring-teal-600/25 whitespace-nowrap shrink-0 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 after:absolute after:bottom-0 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-teal-700"
-      : "relative inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 whitespace-nowrap shrink-0 transition-all duration-200 hover:bg-teal-50/70 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600";
+      ? "relative inline-flex items-center rounded-lg bg-teal-50 px-2.5 lg:px-3 py-1.5 text-sm font-semibold text-teal-800 ring-1 ring-teal-600/25 whitespace-nowrap shrink-0 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 after:absolute after:bottom-0 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-teal-700"
+      : "relative inline-flex items-center rounded-lg px-2.5 lg:px-3 py-1.5 text-sm font-medium text-slate-600 whitespace-nowrap shrink-0 transition-all duration-200 hover:bg-teal-50/70 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600";
   }
 
   return (
@@ -51,6 +53,15 @@ export default function DesktopNavLinks({ user, dashboardHref }: Props) {
         className={linkClass(isForClinics)}
       >
         For clinics
+      </Link>
+      <Link
+        href="/agent"
+        prefetch={true}
+        aria-current={isAgent ? "page" : undefined}
+        className={linkClass(isAgent)}
+      >
+        <BotMessageSquare className="mr-1.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>Chat with Agent</span>
       </Link>
 
       {user ? (

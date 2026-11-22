@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { BotMessageSquare, Menu, X } from "lucide-react";
 
 type Props = {
   user: {
@@ -23,6 +23,7 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
     pathname.startsWith("/admin") && searchParams.get("view") === "manage-doctors";
   const isFindDoctors = pathname === "/doctors" || pathname.startsWith("/doctors/");
   const isForClinics = pathname === "/join-clinic" || pathname.startsWith("/join-clinic/");
+  const isAgent = pathname === "/agent" || pathname.startsWith("/agent/");
   const isAppointments = pathname === "/appointments" || pathname.startsWith("/appointments/");
   const isDashboard =
     dashboardHref !== null &&
@@ -34,8 +35,8 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
 
   function drawerItemClass(active: boolean) {
     return active
-      ? "rounded-lg border-l-4 border-teal-700 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-900"
-      : "rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800";
+      ? "inline-flex items-center gap-2 rounded-lg bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-900 ring-1 ring-teal-600/25"
+      : "inline-flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800";
   }
 
   return (
@@ -96,6 +97,15 @@ export default function MobileNavMenu({ user, dashboardHref, logoutAction }: Pro
               className={drawerItemClass(isForClinics)}
             >
               For clinics
+            </Link>
+            <Link
+              href="/agent"
+              onClick={() => setOpen(false)}
+              aria-current={isAgent ? "page" : undefined}
+              className={drawerItemClass(isAgent)}
+            >
+              <BotMessageSquare className="h-4 w-4 shrink-0 text-teal-700" aria-hidden="true" />
+              <span>Chat with Agent</span>
             </Link>
 
             {user ? (

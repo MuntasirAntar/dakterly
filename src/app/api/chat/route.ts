@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findDoctorsForChat } from "@/lib/chat/doctor-ranking";
 import { detectEmergencyRedFlags, getFixedEmergencyMessage } from "@/lib/chat/emergency";
-import { MissingGeminiKeyError, runSymptomChat } from "@/lib/chat/gemini";
+import { MissingGeminiKeyError, resolveGeminiApiKey, runSymptomChat } from "@/lib/chat/gemini";
 import { checkChatRateLimit } from "@/lib/chat/rate-limit";
 import { chatRequestSchema } from "@/lib/chat/schema";
 import { buildSymptomSystemPrompt } from "@/lib/chat/system-prompt";
 import type { ChatApiResponse, ChatLanguage } from "@/lib/chat/types";
 import { CHAT_UI_TEXT } from "@/lib/chat/ui-text";
 
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 function extractClientIp(request: NextRequest): string {
@@ -102,7 +103,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  if (!process.env.GEMINI_API_KEY?.trim()) {
+  if (!resolveGeminiApiKey()) {
+    console.warn("[/api/chat] GEMINI_API_KEY is missing in environment variables.");
     return NextResponse.json<ChatApiResponse>(
       {
         reply: "",
@@ -143,18 +145,8 @@ export async function POST(request: NextRequest) {
       requestedCity: result.requestedCity,
     });
   } catch (err) {
-    if (err instanceof MissingGeminiKeyError) {
-      return NextResponse.json<ChatApiResponse>(
-        {
-          reply: "",
-          doctors: [],
-          error: CHAT_UI_TEXT[language].errors.missingConfig,
-        },
-        { status: 503 },
-      );
-    }
-
-    if (isInvalidApiKeyError(err)) {
+    if (err instanceof MissingGeminiKeyError || isInvalidApiKeyError(err)) {
+      console.warn("[/api/chat] Gemini API key is missing or invalid. Check GEMINI_API_KEY in Settings > Secrets.");
       return NextResponse.json<ChatApiResponse>(
         {
           reply: "",
@@ -166,6 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (isUpstreamRateLimitError(err)) {
+      console.warn("[/api/chat] Gemini API rate limit / quota exceeded (429).");
       return NextResponse.json<ChatApiResponse>(
         {
           reply: "",
@@ -175,6 +168,23 @@ export async function POST(request: NextRequest) {
         { status: 429 },
       );
     }
+
+    const status = err && typeof err === "object" && "status" in err ? (err as { status?: unknown }).status : undefined;
+    const msg = err instanceof Error ? err.message : String(err);
+
+    if (status === 503 || /UNAVAILABLE|high demand/i.test(msg)) {
+      console.warn("[/api/chat] Upstream Gemini models temporarily unavailable (503).");
+      return NextResponse.json<ChatApiResponse>(
+        {
+          reply: "",
+          doctors: [],
+          error: CHAT_UI_TEXT[language].errors.unavailable,
+        },
+        { status: 503 },
+      );
+    }
+
+    console.error(`[/api/chat] Gemini request failed [status=${String(status ?? "unknown")}]: ${msg}`);
 
     return NextResponse.json<ChatApiResponse>(
       {

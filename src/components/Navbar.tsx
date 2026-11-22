@@ -41,7 +41,7 @@ export default async function Navbar() {
         </Suspense>
 
         {/* Desktop navigation (md+) */}
-        <div className="hidden items-center gap-3 lg:gap-4 md:flex">
+        <div className="hidden items-center gap-2 lg:gap-4 md:flex">
           <Suspense fallback={null}>
             <DesktopNavLinks user={userSummary} dashboardHref={dashboardHref} />
           </Suspense>

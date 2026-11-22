@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { detectEmergencyRedFlags } from "./emergency";
 import { chatRequestSchema, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_MESSAGES } from "./schema";
 import { rankDoctorsByLocation, resolveSpecialtyName, type RankableDoctor } from "./ranking";
+import { getCandidateModels, resolveGeminiApiKey, sanitizeGeminiApiKey } from "./gemini";
 
 describe("detectEmergencyRedFlags", () => {
   it("flags English emergency red flags", () => {
@@ -195,5 +196,50 @@ describe("doctor ranking and specialty resolution", () => {
     expect(resolveSpecialtyName("pediatrician", specialties)).toBe("Pediatrician");
     expect(resolveSpecialtyName("Unknown Specialist", specialties)).toBe("General Physician");
     expect(resolveSpecialtyName(undefined, specialties)).toBe("General Physician");
+  });
+});
+
+describe("Gemini API key resolution", () => {
+  it("sanitizes quotes, whitespace, and accidental key assignment prefixes", () => {
+    expect(sanitizeGeminiApiKey(' "AIzaTest123" ')).toBe("AIzaTest123");
+    expect(sanitizeGeminiApiKey("GEMINI_API_KEY='AIzaTest456'")).toBe("AIzaTest456");
+    expect(sanitizeGeminiApiKey("GOOGLE_GEMINI_API_KEY=AIzaTest789")).toBe("AIzaTest789");
+  });
+
+  it("prefers GOOGLE_GEMINI_API_KEY over GEMINI_API_KEY when set", () => {
+    const prevGoogle = process.env.GOOGLE_GEMINI_API_KEY;
+    const prevGemini = process.env.GEMINI_API_KEY;
+    try {
+      process.env.GEMINI_API_KEY = "AIzaLocked";
+      process.env.GOOGLE_GEMINI_API_KEY = "AIzaCustom";
+      expect(resolveGeminiApiKey()).toBe("AIzaCustom");
+
+      delete process.env.GOOGLE_GEMINI_API_KEY;
+      expect(resolveGeminiApiKey()).toBe("AIzaLocked");
+    } finally {
+      if (prevGoogle === undefined) delete process.env.GOOGLE_GEMINI_API_KEY;
+      else process.env.GOOGLE_GEMINI_API_KEY = prevGoogle;
+
+      if (prevGemini === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = prevGemini;
+    }
+  });
+
+  it("uses active fallback models and skips retired models such as gemini-2.5-flash", () => {
+    expect(getCandidateModels(undefined)).toEqual([
+      "gemini-4-hydrogen",
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+    ]);
+    expect(getCandidateModels("gemini-2.5-flash")).toEqual([
+      "gemini-4-hydrogen",
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+    ]);
+    expect(getCandidateModels("models/gemini-3.8-flash")).toEqual([
+      "gemini-3.8-flash",
+      "gemini-4-hydrogen",
+      "gemini-3.1-flash-lite",
+    ]);
   });
 });
