@@ -4,14 +4,17 @@ import { createMockPrismaClient } from "@/lib/mock-db";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function isConnectionOrAuthError(err: unknown): boolean {
+function shouldFallbackToMock(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const name = "name" in err ? String((err as { name?: unknown }).name) : "";
   const code = "code" in err ? String((err as { code?: unknown }).code) : "";
   const message = "message" in err ? String((err as { message?: unknown }).message) : "";
   if (name === "PrismaClientInitializationError") return true;
   if (/^P10(00|01|02|03|08|11|17)$/.test(code)) return true;
-  return /Authentication failed|Can't reach database server|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(message);
+  if (code === "P2021" || code === "P2022" || code === "42P01") return true;
+  return /Authentication failed|Can't reach database server|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|does not exist in the current database|relation .* does not exist/i.test(
+    message,
+  );
 }
 
 function createPostgresClient(): PrismaClient {
@@ -84,8 +87,8 @@ function createPostgresClient(): PrismaClient {
         `;
         return true;
       })().catch((err) => {
-        if (isConnectionOrAuthError(err)) {
-          console.warn("[Dakterly] PostgreSQL unavailable or invalid credentials — using mock database.");
+        if (shouldFallbackToMock(err)) {
+          console.warn("[Dakterly] PostgreSQL unavailable or schema not migrated yet — using mock database.");
           return false;
         }
         schemaReady = null;
@@ -119,8 +122,8 @@ function createPostgresClient(): PrismaClient {
           try {
             return await query(args);
           } catch (err) {
-            if (isConnectionOrAuthError(err)) {
-              console.warn("[Dakterly] PostgreSQL query failed — falling back to mock database.");
+            if (shouldFallbackToMock(err)) {
+              console.warn("[Dakterly] PostgreSQL query failed or table missing — falling back to mock database.");
               return runOnMock(model, operation, args);
             }
             throw err;
